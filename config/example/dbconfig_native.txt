@@ -1,5 +1,0 @@
-# server adapter
-DB_PROVIDER native
-
-# filename
-DB_FILENAME local.db
