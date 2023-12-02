@@ -1,11 +1,10 @@
-GLOBAL_LIST_EMPTY(hologram_list)
+GLOBAL_LIST_EMPTY_TYPED(hologram_list, /mob/hologram)
 
 /mob/hologram
 	name = "Hologram"
 	desc = "It seems to be a visual projection of someone" //jinkies!
 	icon = 'icons/mob/mob.dmi'
 	icon_state = "hologram"
-	canmove = TRUE
 	blinded = FALSE
 
 	invisibility = INVISIBILITY_OBSERVER
@@ -16,6 +15,8 @@ GLOBAL_LIST_EMPTY(hologram_list)
 
 	var/mob/linked_mob
 	var/datum/action/leave_hologram/leave_button
+	///If can be detected on motion detectors.
+	var/motion_sensed = FALSE
 
 /mob/hologram/movement_delay()
 	. = -2 // Very fast speed, so they can navigate through easily, they can't ever have movement delay whilst as a hologram
@@ -79,9 +80,10 @@ GLOBAL_LIST_EMPTY(hologram_list)
 	return NO_BLOCKED_MOVEMENT
 
 /mob/hologram/Destroy()
-	UnregisterSignal(linked_mob, COMSIG_MOB_RESET_VIEW)
-	linked_mob.reset_view()
-	linked_mob = null
+	if(linked_mob)
+		UnregisterSignal(linked_mob, COMSIG_MOB_RESET_VIEW)
+		linked_mob.reset_view()
+		linked_mob = null
 
 	if(!QDESTROYING(leave_button))
 		QDEL_NULL(leave_button)
@@ -102,7 +104,8 @@ GLOBAL_LIST_EMPTY(hologram_list)
 	qdel(src)
 
 /datum/action/leave_hologram/Destroy()
-	QDEL_NULL(linked_hologram)
+	if(!QDESTROYING(linked_hologram))
+		QDEL_NULL(linked_hologram)
 	return ..()
 
 /mob/hologram/techtree/Initialize(mapload, mob/M)

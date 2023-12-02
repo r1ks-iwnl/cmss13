@@ -30,7 +30,7 @@
 /obj/item/reagent_container/glass/bottle/Initialize()
 	. = ..()
 	if(!icon_state)
-		icon_state = "bottle-[rand(1.4)]"
+		icon_state = "bottle-[rand(1,4)]"
 
 /obj/item/reagent_container/glass/bottle/update_icon()
 	overlays.Cut()
@@ -236,10 +236,10 @@
 	icon_state = "bottle3"
 
 /obj/item/reagent_container/glass/bottle/pierrot_throat/Initialize()
-		..()
-		var/datum/disease/F = new /datum/disease/pierrot_throat(0)
-		var/list/data = list("viruses"= list(F))
-		reagents.add_reagent("blood", 20, data)
+	. = ..()
+	var/datum/disease/F = new /datum/disease/pierrot_throat(0)
+	var/list/data = list("viruses"= list(F))
+	reagents.add_reagent("blood", 20, data)
 
 /obj/item/reagent_container/glass/bottle/cold
 	name = "rhinovirus culture bottle"

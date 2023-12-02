@@ -25,11 +25,17 @@
 
 	set_hive_data(src, hivenumber)
 	update_icon()
-	INVOKE_ASYNC(src, PROC_REF(Grow))
+	addtimer(CALLBACK(src, PROC_REF(Grow)), rand(EGG_MIN_GROWTH_TIME, EGG_MAX_GROWTH_TIME))
 
 /obj/effect/alien/egg/Destroy()
 	. = ..()
-	QDEL_NULL_LIST(egg_triggers)
+	for(var/obj/effect/egg_trigger/trigger as anything in egg_triggers)
+		trigger.linked_egg = null
+		trigger.linked_eggmorph = null
+		qdel(trigger)
+	if(egg_triggers)
+		egg_triggers.Cut()
+	egg_triggers = null
 
 /obj/effect/alien/egg/ex_act(severity)
 	Burst(TRUE)//any explosion destroys the egg.
@@ -40,6 +46,14 @@
 		. += "Ctrl + Click egg to retrieve child into your empty hand if you can carry it."
 
 /obj/effect/alien/egg/attack_alien(mob/living/carbon/xenomorph/M)
+	if(status == EGG_BURST || status == EGG_DESTROYED)
+		M.animation_attack_on(src)
+		M.visible_message(SPAN_XENONOTICE("[M] clears the hatched egg."), \
+		SPAN_XENONOTICE("You clear the hatched egg."))
+		playsound(src.loc, "alien_resin_break", 25)
+		qdel(src)
+		return XENO_NONCOMBAT_ACTION
+
 	if(M.hivenumber != hivenumber)
 		M.animation_attack_on(src)
 		M.visible_message(SPAN_XENOWARNING("[M] crushes \the [src]"),
@@ -51,13 +65,6 @@
 		return attack_hand(M)
 
 	switch(status)
-		if(EGG_BURST, EGG_DESTROYED)
-			M.animation_attack_on(src)
-			M.visible_message(SPAN_XENONOTICE("\The [M] clears the hatched egg."), \
-			SPAN_XENONOTICE("You clear the hatched egg."))
-			playsound(src.loc, "alien_resin_break", 25)
-			qdel(src)
-			return XENO_NONCOMBAT_ACTION
 		if(EGG_GROWING)
 			to_chat(M, SPAN_XENOWARNING("The child is not developed yet."))
 			return XENO_NO_DELAY_ACTION
@@ -80,9 +87,6 @@
 	return ..()
 
 /obj/effect/alien/egg/proc/Grow()
-	set waitfor = 0
-	update_icon()
-	sleep(rand(EGG_MIN_GROWTH_TIME, EGG_MAX_GROWTH_TIME))
 	if(status == EGG_GROWING)
 		icon_state = "Egg"
 		status = EGG_GROWN
@@ -147,7 +151,7 @@
 	else
 		child.go_idle()
 
-/obj/effect/alien/egg/bullet_act(obj/item/projectile/P)
+/obj/effect/alien/egg/bullet_act(obj/projectile/P)
 	..()
 	var/ammo_flags = P.ammo.flags_ammo_behavior | P.projectile_override_flags
 	if(ammo_flags & (AMMO_XENO))
@@ -204,16 +208,13 @@
 		return
 
 	user.animation_attack_on(src)
-	if(W.attack_verb.len)
+	if(length(W.attack_verb))
 		visible_message(SPAN_DANGER("\The [src] has been [pick(W.attack_verb)] with \the [W][(user ? " by [user]." : ".")]"))
 	else
 		visible_message(SPAN_DANGER("\The [src] has been attacked with \the [W][(user ? " by [user]." : ".")]"))
 	var/damage = W.force
-	if(W.w_class < SIZE_LARGE || !W.sharp || W.force < 20) //only big strong sharp weapon are adequate
-		damage /= 4
 	if(iswelder(W))
 		var/obj/item/tool/weldingtool/WT = W
-
 		if(WT.remove_fuel(0, user))
 			damage = 15
 			playsound(src.loc, 'sound/items/Welder.ogg', 25, 1)
@@ -295,3 +296,63 @@
 			linked_egg.HasProximity(C)
 		if(linked_eggmorph)
 			linked_eggmorph.HasProximity(C)
+
+/*
+SPECIAL EGG USED BY EGG CARRIER
+*/
+
+#define CARRIER_EGG_UNSUSTAINED_LIFE 1 MINUTES
+#define CARRIER_EGG_MAXIMUM_LIFE 5 MINUTES
+
+/obj/effect/alien/egg/carrier_egg
+	name = "fragile egg"
+	desc = "It looks like a weird, fragile egg."
+	///Owner of the fragile egg, must be a mob/living/carbon/xenomorph/carrier
+	var/mob/living/carbon/xenomorph/carrier/owner = null
+	///Time that the carrier was last within refresh range of the egg (14 tiles)
+	var/last_refreshed = null
+	/// Timer holder for the maximum lifetime of the egg as defined CARRIER_EGG_MAXIMUM_LIFE
+	var/life_timer = null
+
+/obj/effect/alien/egg/carrier_egg/Initialize(mapload, hivenumber, planter = null)
+	. = ..()
+	last_refreshed = world.time
+	if(!planter)
+		//If we have no owner when created... this really shouldn't happen but start decaying the egg immediately.
+		start_unstoppable_decay()
+	else
+		//Die after maximum lifetime
+		life_timer = addtimer(CALLBACK(src, PROC_REF(start_unstoppable_decay)), CARRIER_EGG_MAXIMUM_LIFE, TIMER_STOPPABLE)
+		set_owner(planter)
+
+/obj/effect/alien/egg/carrier_egg/Destroy()
+	if(life_timer)
+		deltimer(life_timer)
+	//Remove reference to src in owner's behavior_delegate and set owner to null
+	if(owner)
+		var/mob/living/carbon/xenomorph/carrier/my_owner = owner
+		var/datum/behavior_delegate/carrier_eggsac/behavior = my_owner.behavior_delegate
+		behavior.eggs_sustained -= src
+		my_owner = null
+	return ..()
+
+/// Set the owner of the egg to the planter.
+/obj/effect/alien/egg/carrier_egg/proc/set_owner(mob/living/carbon/xenomorph/carrier/planter)
+	var/datum/behavior_delegate/carrier_eggsac/my_delegate = planter.behavior_delegate
+	my_delegate.eggs_sustained += src
+	owner = planter
+
+///Check the last refreshed time and burst the egg if we're over the lifetime of the egg
+/obj/effect/alien/egg/carrier_egg/proc/check_decay()
+	if(last_refreshed + CARRIER_EGG_UNSUSTAINED_LIFE < world.time)
+		start_unstoppable_decay()
+
+///Burst the egg without hugger release after a 10 second timer & remove the life timer.
+/obj/effect/alien/egg/carrier_egg/proc/start_unstoppable_decay()
+	addtimer(CALLBACK(src, PROC_REF(Burst), TRUE), 10 SECONDS)
+	if(life_timer)
+		deltimer(life_timer)
+
+/obj/effect/alien/egg/carrier_egg/Burst(kill, instant_trigger, mob/living/carbon/xenomorph/X, is_hugger_player_controlled)
+	. = ..()
+	owner = null

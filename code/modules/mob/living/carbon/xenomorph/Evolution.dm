@@ -8,6 +8,10 @@
 	set name = "Evolve"
 	set desc = "Evolve into a higher form."
 	set category = "Alien"
+
+	do_evolve()
+
+/mob/living/carbon/xenomorph/proc/do_evolve()
 	var/potential_queens = 0
 
 	if (!evolve_checks())
@@ -35,7 +39,7 @@
 	if(!evolve_checks())
 		return
 
-	if((!hive.living_xeno_queen) && castepick != XENO_CASTE_QUEEN && !islarva(src) && !hive.allow_no_queen_actions)
+	if((!hive.living_xeno_queen) && castepick != XENO_CASTE_QUEEN && !islarva(src) && !hive.allow_no_queen_evo)
 		to_chat(src, SPAN_WARNING("The Hive is shaken by the death of the last Queen. You can't find the strength to evolve."))
 		return
 
@@ -78,7 +82,7 @@
 
 	var/mob/living/carbon/xenomorph/M = null
 
-	M = RoleAuthority.get_caste_by_text(castepick)
+	M = GLOB.RoleAuthority.get_caste_by_text(castepick)
 
 	if(isnull(M))
 		to_chat(usr, SPAN_WARNING("[castepick] is not a valid caste! If you're seeing this message, tell a coder!"))
@@ -130,18 +134,21 @@
 			qdel(new_xeno)
 		return
 
-	switch(new_xeno.tier) //They have evolved, add them to the slot count
-		if(2)
-			hive.tier_2_xenos |= new_xeno
-		if(3)
-			hive.tier_3_xenos |= new_xeno
+	var/area/xeno_area = get_area(new_xeno)
+	if(!is_admin_level(new_xeno.z) || (xeno_area.flags_atom & AREA_ALLOW_XENO_JOIN))
+		switch(new_xeno.tier) //They have evolved, add them to the slot count IF they are in regular game space
+			if(2)
+				hive.tier_2_xenos |= new_xeno
+			if(3)
+				hive.tier_3_xenos |= new_xeno
 
+	log_game("EVOLVE: [key_name(src)] evolved into [new_xeno].")
 	if(mind)
 		mind.transfer_to(new_xeno)
 	else
 		new_xeno.key = src.key
 		if(new_xeno.client)
-			new_xeno.client.change_view(world_view_size)
+			new_xeno.client.change_view(GLOB.world_view_size)
 
 	//Regenerate the new mob's name now that our player is inside
 	new_xeno.generate_name()
@@ -175,8 +182,8 @@
 	if (new_xeno.client)
 		new_xeno.client.mouse_pointer_icon = initial(new_xeno.client.mouse_pointer_icon)
 
-	if(new_xeno.mind && round_statistics)
-		round_statistics.track_new_participant(new_xeno.faction, -1) //so an evolved xeno doesn't count as two.
+	if(new_xeno.mind && GLOB.round_statistics)
+		GLOB.round_statistics.track_new_participant(new_xeno.faction, -1) //so an evolved xeno doesn't count as two.
 	SSround_recording.recorder.track_player(new_xeno)
 
 /mob/living/carbon/xenomorph/proc/evolve_checks()
@@ -323,12 +330,13 @@
 			qdel(new_xeno)
 		return
 
+	log_game("EVOLVE: [key_name(src)] de-evolved into [new_xeno].")
 	if(mind)
 		mind.transfer_to(new_xeno)
 	else
 		new_xeno.key = key
 		if(new_xeno.client)
-			new_xeno.client.change_view(world_view_size)
+			new_xeno.client.change_view(GLOB.world_view_size)
 			new_xeno.client.pixel_x = 0
 			new_xeno.client.pixel_y = 0
 
@@ -339,8 +347,8 @@
 	new_xeno.visible_message(SPAN_XENODANGER("A [new_xeno.caste.caste_type] emerges from the husk of \the [src]."), \
 	SPAN_XENODANGER("You regress into your previous form."))
 
-	if(round_statistics && !new_xeno.statistic_exempt)
-		round_statistics.track_new_participant(faction, -1) //so an evolved xeno doesn't count as two.
+	if(GLOB.round_statistics && !new_xeno.statistic_exempt)
+		GLOB.round_statistics.track_new_participant(faction, -1) //so an evolved xeno doesn't count as two.
 	SSround_recording.recorder.track_player(new_xeno)
 
 	src.transfer_observers_to(new_xeno)
@@ -349,24 +357,27 @@
 
 /mob/living/carbon/xenomorph/proc/can_evolve(castepick, potential_queens)
 	var/selected_caste = GLOB.xeno_datum_list[castepick]?.type
-	var/free_slots = LAZYACCESS(hive.free_slots, selected_caste)
-	if(free_slots)
+	var/free_slot = LAZYACCESS(hive.free_slots, selected_caste)
+	var/used_slot = LAZYACCESS(hive.used_slots, selected_caste)
+	if(free_slot > used_slot)
 		return TRUE
-
-	var/burrowed_factor = min(hive.stored_larva, sqrt(4*hive.stored_larva))
-	burrowed_factor = round(burrowed_factor)
 
 	var/used_tier_2_slots = length(hive.tier_2_xenos)
 	var/used_tier_3_slots = length(hive.tier_3_xenos)
-	for(var/caste_path in hive.used_free_slots)
-		if(!hive.used_free_slots[caste_path])
+	for(var/caste_path in hive.free_slots)
+		var/slots_free = hive.free_slots[caste_path]
+		var/slots_used = hive.used_slots[caste_path]
+		if(!slots_used)
 			continue
-		var/datum/caste_datum/C = caste_path
-		switch(initial(C.tier))
-			if(2) used_tier_2_slots--
-			if(3) used_tier_3_slots--
+		var/datum/caste_datum/current_caste = caste_path
+		switch(initial(current_caste.tier))
+			if(2)
+				used_tier_2_slots -= min(slots_used, slots_free)
+			if(3)
+				used_tier_3_slots -= min(slots_used, slots_free)
 
-	var/totalXenos = burrowed_factor
+	var/burrowed_factor = min(hive.stored_larva, sqrt(4*hive.stored_larva))
+	var/totalXenos = round(burrowed_factor)
 	for(var/mob/living/carbon/xenomorph/xeno as anything in hive.totalXenos)
 		if(xeno.counts_for_slots)
 			totalXenos++

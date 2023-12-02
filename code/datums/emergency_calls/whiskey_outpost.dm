@@ -51,7 +51,7 @@
 
 	sleep(10)
 	to_chat(mob, "<B>Objectives:</b> [objectives]")
-	RoleAuthority.randomize_squad(mob)
+	GLOB.RoleAuthority.randomize_squad(mob)
 	mob.sec_hud_set_ID()
 	mob.hud_set_squad()
 
@@ -60,7 +60,7 @@
 
 /datum/game_mode/whiskey_outpost/activate_distress()
 	var/datum/emergency_call/em_call = /datum/emergency_call/wo
-	em_call.activate(FALSE)
+	em_call.activate(TRUE, FALSE)
 	return
 
 /datum/emergency_call/wo/platoon

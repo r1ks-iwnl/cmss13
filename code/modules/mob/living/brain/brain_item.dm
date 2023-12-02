@@ -17,9 +17,9 @@
 	var/mob/living/brain/brainmob = null
 
 /obj/item/organ/brain/xeno
-	name = "thinkpan"
-	desc = "It looks kind of like an enormous wad of purple bubblegum."
-	icon_state = "chitin"
+	name = "alien brain"
+	desc = "For a brain, it looks kind of like an enormous wad of purple bubblegum."
+	icon_state = "xenobrain"
 
 /obj/item/organ/brain/New()
 	..()
@@ -67,4 +67,4 @@
 			brainmob.mind.transfer_to(target)
 		else
 			target.key = brainmob.key
-			if(target.client) target.client.change_view(world_view_size)
+			if(target.client) target.client.change_view(GLOB.world_view_size)

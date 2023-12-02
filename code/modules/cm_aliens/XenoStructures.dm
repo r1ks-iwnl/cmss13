@@ -50,7 +50,7 @@
 	health -= 50
 	healthcheck()
 
-/obj/effect/alien/resin/bullet_act(obj/item/projectile/Proj)
+/obj/effect/alien/resin/bullet_act(obj/projectile/Proj)
 	health -= Proj.damage
 	..()
 	healthcheck()
@@ -150,21 +150,32 @@
 	var/hivenumber = XENO_HIVE_NORMAL
 
 /obj/effect/alien/resin/sticky/Initialize(mapload, hive)
-	..()
+	. = ..()
 	if (hive)
 		hivenumber = hive
 	set_hive_data(src, hivenumber)
+	if(hivenumber == XENO_HIVE_NORMAL)
+		RegisterSignal(SSdcs, COMSIG_GLOB_GROUNDSIDE_FORSAKEN_HANDLING, PROC_REF(forsaken_handling))
 
 /obj/effect/alien/resin/sticky/Crossed(atom/movable/AM)
 	. = ..()
 	var/mob/living/carbon/human/H = AM
-	if(istype(H) && !H.lying && !H.ally_of_hivenumber(hivenumber))
+	// Wait doesn't this stack slows if you get dragged over it? What's going on here?
+	if(istype(H) && !H.ally_of_hivenumber(hivenumber))
 		H.next_move_slowdown = H.next_move_slowdown + slow_amt
 		return .
 	var/mob/living/carbon/xenomorph/X = AM
 	if(istype(X) && !X.ally_of_hivenumber(hivenumber))
 		X.next_move_slowdown = X.next_move_slowdown + slow_amt
 		return .
+
+/obj/effect/alien/resin/sticky/proc/forsaken_handling()
+	SIGNAL_HANDLER
+	if(is_ground_level(z))
+		hivenumber = XENO_HIVE_FORSAKEN
+		set_hive_data(src, XENO_HIVE_FORSAKEN)
+
+	UnregisterSignal(SSdcs, COMSIG_GLOB_GROUNDSIDE_FORSAKEN_HANDLING)
 
 /obj/effect/alien/resin/spike
 	name = "resin spike"
@@ -192,7 +203,9 @@
 	if (hive)
 		hivenumber = hive
 	set_hive_data(src, hivenumber)
-	setDir(pick(alldirs))
+	setDir(pick(GLOB.alldirs))
+	if(hivenumber == XENO_HIVE_NORMAL)
+		RegisterSignal(SSdcs, COMSIG_GLOB_GROUNDSIDE_FORSAKEN_HANDLING, PROC_REF(forsaken_handling))
 
 /obj/effect/alien/resin/spike/Crossed(atom/movable/AM)
 	. = ..()
@@ -205,6 +218,14 @@
 
 	H.apply_armoured_damage(damage, penetration = penetration, def_zone = pick(target_limbs))
 	H.last_damage_data = construction_data
+
+/obj/effect/alien/resin/spike/proc/forsaken_handling()
+	SIGNAL_HANDLER
+	if(is_ground_level(z))
+		hivenumber = XENO_HIVE_FORSAKEN
+		set_hive_data(src, XENO_HIVE_FORSAKEN)
+
+	UnregisterSignal(SSdcs, COMSIG_GLOB_GROUNDSIDE_FORSAKEN_HANDLING)
 
 // Praetorian Sticky Resin spit uses this.
 /obj/effect/alien/resin/sticky/thin
@@ -278,18 +299,19 @@
 /obj/effect/alien/resin/marker/Destroy()
 	var/datum/hive_status/builder_hive = GLOB.hive_datum[hivenumber]
 
-	builder_hive.resin_marks -= src
+	if(builder_hive)
+		builder_hive.resin_marks -= src
 
-	for(var/mob/living/carbon/xenomorph/XX in builder_hive.totalXenos)
-		XX.built_structures -= src
-		if(!XX.client)
-			continue
-		XX.client.images -= seenMeaning  //this should be a hud thing, but that code is too confusing so I am doing it here
-		XX.hive.mark_ui.update_all_data()
+		for(var/mob/living/carbon/xenomorph/XX in builder_hive.totalXenos)
+			XX.built_structures -= src
+			if(!XX.client)
+				continue
+			XX.client.images -= seenMeaning  //this should be a hud thing, but that code is too confusing so I am doing it here
+			XX.hive.mark_ui.update_all_data()
 
-	for(var/mob/living/carbon/xenomorph/X in xenos_tracking) //no floating references :0)
-		X.stop_tracking_resin_mark(TRUE)
-	. = ..()
+		for(var/mob/living/carbon/xenomorph/X in xenos_tracking) //no floating references :0)
+			X.stop_tracking_resin_mark(TRUE)
+	return ..()
 
 /obj/effect/alien/resin/marker/proc/check_for_weeds()
 	var/turf/T = get_turf(src)
@@ -323,6 +345,7 @@
 /obj/structure/mineral_door/resin
 	name = "resin door"
 	icon = 'icons/mob/xenos/effects.dmi'
+	icon_state = "resin"
 	mineralType = "resin"
 	hardness = 1.5
 	health = HEALTH_DOOR_XENO
@@ -346,11 +369,14 @@
 
 	set_hive_data(src, hivenumber)
 
+	if(hivenumber == XENO_HIVE_NORMAL)
+		RegisterSignal(SSdcs, COMSIG_GLOB_GROUNDSIDE_FORSAKEN_HANDLING, PROC_REF(forsaken_handling))
+
 /obj/structure/mineral_door/resin/flamer_fire_act(dam = BURN_LEVEL_TIER_1)
 	health -= dam
 	healthcheck()
 
-/obj/structure/mineral_door/resin/bullet_act(obj/item/projectile/Proj)
+/obj/structure/mineral_door/resin/bullet_act(obj/projectile/Proj)
 	health -= Proj.damage
 	..()
 	healthcheck()
@@ -369,11 +395,13 @@
 		return attack_hand(user)
 
 /obj/structure/mineral_door/resin/TryToSwitchState(atom/user)
-	if(islarva(user))
-		var/mob/living/carbon/xenomorph/larva/L = user
-		if (L.hivenumber == hivenumber)
-			L.scuttle(src)
-		return
+	if(isxeno(user))
+		var/mob/living/carbon/xenomorph/xeno_user = user
+		if (xeno_user.hivenumber != hivenumber && !xeno_user.ally_of_hivenumber(hivenumber))
+			return
+		if(xeno_user.scuttle(src))
+			return
+		return ..()
 	if(iscarbon(user))
 		var/mob/living/carbon/C = user
 		if (C.ally_of_hivenumber(hivenumber))
@@ -391,18 +419,23 @@
 	update_icon()
 	isSwitchingStates = 0
 	layer = DOOR_OPEN_LAYER
-	spawn(close_delay)
-		if(!isSwitchingStates && state == 1)
-			Close()
+	addtimer(CALLBACK(src, PROC_REF(Close)), close_delay, TIMER_UNIQUE|TIMER_OVERRIDE)
+
+/obj/structure/mineral_door/resin/proc/close_blocked()
+	for(var/turf/turf in locs)
+		for(var/mob/living/living_mob in turf)
+			if(!HAS_TRAIT(living_mob, TRAIT_MERGED_WITH_WEEDS))
+				return TRUE
+	return FALSE
 
 /obj/structure/mineral_door/resin/Close()
-	if(!state || !loc) return //already closed
+	if(!state || !loc || isSwitchingStates)
+		return //already closed or changing
 	//Can't close if someone is blocking it
-	for(var/turf/turf in locs)
-		if(locate(/mob/living) in turf)
-			spawn (close_delay)
-				Close()
-			return
+	if(close_blocked())
+		addtimer(CALLBACK(src, PROC_REF(Close)), close_delay, TIMER_UNIQUE|TIMER_OVERRIDE)
+		return
+
 	isSwitchingStates = 1
 	playsound(loc, "alien_resin_move", 25)
 	flick("[mineralType]closing",src)
@@ -413,10 +446,10 @@
 	update_icon()
 	isSwitchingStates = 0
 	layer = DOOR_CLOSED_LAYER
-	for(var/turf/turf in locs)
-		if(locate(/mob/living) in turf)
-			Open()
-			return
+
+	if(close_blocked())
+		Open()
+		return
 
 /obj/structure/mineral_door/resin/Dismantle(devastated = 0)
 	qdel(src)
@@ -430,7 +463,7 @@
 	var/turf/U = loc
 	spawn(0)
 		var/turf/T
-		for(var/i in cardinal)
+		for(var/i in GLOB.cardinals)
 			T = get_step(U, i)
 			if(!istype(T)) continue
 			for(var/obj/structure/mineral_door/resin/R in T)
@@ -463,7 +496,7 @@
 //do we still have something next to us to support us?
 /obj/structure/mineral_door/resin/proc/check_resin_support()
 	var/turf/T
-	for(var/i in cardinal)
+	for(var/i in GLOB.cardinals)
 		T = get_step(src, i)
 		if(!T)
 			continue
@@ -477,8 +510,16 @@
 		visible_message(SPAN_NOTICE("[src] collapses from the lack of support."))
 		qdel(src)
 
+/obj/structure/mineral_door/resin/proc/forsaken_handling()
+	SIGNAL_HANDLER
+	if(is_ground_level(z))
+		hivenumber = XENO_HIVE_FORSAKEN
+		set_hive_data(src, XENO_HIVE_FORSAKEN)
+
+	UnregisterSignal(SSdcs, COMSIG_GLOB_GROUNDSIDE_FORSAKEN_HANDLING)
 /obj/structure/mineral_door/resin/thick
 	name = "thick resin door"
+	icon_state = "thick resin"
 	health = HEALTH_DOOR_XENO_THICK
 	hardness = 2
 	mineralType = "thick resin"
@@ -507,29 +548,37 @@
 		hivenumber = hive
 	set_hive_data(src, hivenumber)
 	START_PROCESSING(SSprocessing, src)
+	if(hivenumber == XENO_HIVE_NORMAL)
+		RegisterSignal(SSdcs, COMSIG_GLOB_GROUNDSIDE_FORSAKEN_HANDLING, PROC_REF(forsaken_handling))
 
 
-/obj/effect/alien/resin/acid_pillar/proc/can_target(mob/living/carbon/C, position_to_get = 0)
-	if(get_dist(src, C) > range)
+/obj/effect/alien/resin/acid_pillar/proc/can_target(mob/living/carbon/current_mob, position_to_get = 0)
+	/// Is it a friendly xenomorph that is on fire
+	var/burning_friendly = FALSE
+
+	if(get_dist(src, current_mob) > range)
 		return FALSE
 
-	var/check_dead = FALSE
-	if(C.ally_of_hivenumber(hivenumber))
-		if(!C.on_fire || !isxeno(C))
+	if(current_mob.ally_of_hivenumber(hivenumber))
+		if(!isxeno(current_mob))
 			return FALSE
-	else if(C.lying || C.is_mob_incapacitated(TRUE))
+		if(!current_mob.on_fire)
+			return FALSE
+		burning_friendly = TRUE
+
+	else if(current_mob.body_position == LYING_DOWN || current_mob.is_mob_incapacitated(TRUE))
 		return FALSE
 
-	if(!check_dead && C.health < 0)
+	if(!burning_friendly && current_mob.health < 0)
 		return FALSE
-	if(check_dead && C.stat == DEAD)
+	if(current_mob.stat == DEAD)
 		return FALSE
 
 	var/turf/current_turf
 	var/turf/last_turf = loc
 	var/atom/temp_atom = new acid_type()
 	var/current_pos = 1
-	for(var/i in getline(src, C))
+	for(var/i in getline(src, current_mob))
 		current_turf = i
 		if(LinkBlocked(temp_atom, last_turf, current_turf))
 			qdel(temp_atom)
@@ -587,8 +636,14 @@
 	STOP_PROCESSING(SSprocessing, src)
 	return ..()
 
-/obj/effect/alien/resin/acid_pillar/get_projectile_hit_boolean(obj/item/projectile/P)
+/obj/effect/alien/resin/acid_pillar/get_projectile_hit_boolean(obj/projectile/P)
 	return TRUE
+
+/obj/effect/alien/resin/acid_pillar/proc/forsaken_handling()
+	SIGNAL_HANDLER
+	UnregisterSignal(SSdcs, COMSIG_GLOB_GROUNDSIDE_FORSAKEN_HANDLING)
+	if(is_ground_level(z))
+		qdel(src)
 
 /obj/effect/alien/resin/acid_pillar/strong
 	name = "acid pillar"
@@ -709,7 +764,7 @@
 	SIGNAL_HANDLER
 	hitby(AM)
 
-/obj/effect/alien/resin/resin_pillar/proc/handle_bullet(turf/T, obj/item/projectile/P)
+/obj/effect/alien/resin/resin_pillar/proc/handle_bullet(turf/T, obj/projectile/P)
 	SIGNAL_HANDLER
 	bullet_act(P)
 	return COMPONENT_BULLET_ACT_OVERRIDE
@@ -848,7 +903,7 @@
 
 	var/range = 3
 
-/obj/item/explosive/grenade/alien/acid/get_projectile_hit_boolean(obj/item/projectile/P)
+/obj/item/explosive/grenade/alien/acid/get_projectile_hit_boolean(obj/projectile/P)
 	return FALSE
 
 /obj/item/explosive/grenade/alien/acid/prime(force)
@@ -885,9 +940,9 @@
 
 	// If the cell is the epicenter, propagate in all directions
 	if(isnull(direction))
-		return alldirs
+		return GLOB.alldirs
 
-	if(direction in cardinal)
+	if(direction in GLOB.cardinals)
 		. += list(direction, turn(direction, 45), turn(direction, -45))
 	else
 		. += direction
@@ -921,7 +976,7 @@
 			// Set the direction the explosion is traveling in
 			E.direction = dir
 
-			if(dir in diagonals)
+			if(dir in GLOB.diagonals)
 				E.range--
 
 			switch(E.range)

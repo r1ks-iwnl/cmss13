@@ -9,11 +9,16 @@
 
 
 /mob/living/carbon/human/attack_alien(mob/living/carbon/xenomorph/M, dam_bonus)
-	if(M.fortify || M.burrow)
+	if(M.fortify || HAS_TRAIT(M, TRAIT_ABILITY_BURROWED))
 		return XENO_NO_DELAY_ACTION
 
+	var/intent = M.a_intent
+
+	if(M.behavior_delegate)
+		intent = M.behavior_delegate.override_intent(src)
+
 	//Reviewing the four primary intents
-	switch(M.a_intent)
+	switch(intent)
 
 		if(INTENT_HELP)
 			if(on_fire)
@@ -204,7 +209,7 @@
 				SPAN_DANGER("You tackle down [src]!"), null, 5, CHAT_TYPE_XENO_COMBAT)
 			else
 				playsound(loc, 'sound/weapons/alien_claw_swipe.ogg', 25, 1)
-				if (knocked_down)
+				if (HAS_TRAIT(src, TRAIT_FLOORED))
 					M.visible_message(SPAN_DANGER("[M] tries to tackle [src], but they are already down!"), \
 					SPAN_DANGER("You try to tackle [src], but they are already down!"), null, 5, CHAT_TYPE_XENO_COMBAT)
 				else
@@ -215,7 +220,7 @@
 
 //Every other type of nonhuman mob
 /mob/living/attack_alien(mob/living/carbon/xenomorph/M)
-	if(M.fortify || M.burrow)
+	if(M.fortify || HAS_TRAIT(M, TRAIT_ABILITY_BURROWED))
 		return XENO_NO_DELAY_ACTION
 
 	switch(M.a_intent)
@@ -262,7 +267,10 @@
 			M.attack_log += text("\[[time_stamp()]\] <font color='red'>[M.slash_verb]ed [key_name(src)]</font>")
 			log_attack("[key_name(M)] [M.slash_verb]ed [key_name(src)]")
 
-			playsound(loc, M.slash_sound, 25, 1)
+			if(custom_slashed_sound)
+				playsound(loc, custom_slashed_sound, 25, 1)
+			else
+				playsound(loc, M.slash_sound, 25, 1)
 			apply_damage(damage, BRUTE)
 
 		if(INTENT_DISARM)
@@ -279,6 +287,9 @@
 	SPAN_DANGER("You nudge your head against [src]."), null, 5, CHAT_TYPE_XENO_FLUFF)
 
 /mob/living/proc/is_xeno_grabbable()
+	if(stat == DEAD)
+		return FALSE
+
 	return TRUE
 
 /mob/living/carbon/human/is_xeno_grabbable()
@@ -299,20 +310,6 @@
 /obj/item/attack_alien(mob/living/carbon/xenomorph/M)
 	return
 
-/obj/vehicle/attack_alien(mob/living/carbon/xenomorph/M)
-	if(M.a_intent == INTENT_HARM)
-		M.animation_attack_on(src)
-		M.flick_attack_overlay(src, "slash")
-		health -= 15
-		playsound(loc, "alien_claw_metal", 25, 1)
-		M.visible_message(SPAN_DANGER("[M] [M.slashes_verb] [src]."),SPAN_DANGER("You [M.slash_verb] [src]."), null, 5, CHAT_TYPE_XENO_COMBAT)
-		healthcheck()
-		return XENO_ATTACK_ACTION
-	else
-		attack_hand(M)
-		return XENO_NONCOMBAT_ACTION
-
-
 /obj/attack_larva(mob/living/carbon/xenomorph/larva/M)
 	return //larva can't do anything
 
@@ -328,7 +325,7 @@
 		if(health <= 0)
 			M.visible_message(SPAN_DANGER("[M] slices [src] apart!"), \
 			SPAN_DANGER("You slice [src] apart!"), null, 5, CHAT_TYPE_XENO_COMBAT)
-			deconstruct()
+			deconstruct(FALSE)
 		else
 			M.visible_message(SPAN_DANGER("[M] [M.slashes_verb] [src]!"), \
 			SPAN_DANGER("You [M.slash_verb] [src]!"), null, 5, CHAT_TYPE_XENO_COMBAT)
@@ -370,7 +367,7 @@
 	playsound(src, 'sound/effects/metalhit.ogg', 25, 1)
 	M.visible_message(SPAN_DANGER("[M] slices [src] apart!"), \
 	SPAN_DANGER("You slice [src] apart!"), null, 5, CHAT_TYPE_XENO_COMBAT)
-	deconstruct()
+	deconstruct(FALSE)
 	return XENO_ATTACK_ACTION
 
 //Default "structure" proc. This should be overwritten by sub procs.
@@ -392,7 +389,7 @@
 		M.visible_message(SPAN_DANGER("[M] slices [src] apart!"),
 		SPAN_DANGER("You slice [src] apart!"), null, 5, CHAT_TYPE_XENO_COMBAT)
 		unbuckle()
-		deconstruct()
+		deconstruct(FALSE)
 		return XENO_ATTACK_ACTION
 	else
 		attack_hand(M)
@@ -558,7 +555,7 @@
 	if(M.action_busy)
 		return XENO_NO_DELAY_ACTION
 
-	if(M.lying)
+	if(M.is_mob_incapacitated() || M.body_position != STANDING_UP)
 		return XENO_NO_DELAY_ACTION
 
 	var/delay
@@ -577,7 +574,7 @@
 	if(do_after(M, delay, INTERRUPT_ALL, BUSY_ICON_HOSTILE))
 		if(M.loc != cur_loc)
 			return XENO_NO_DELAY_ACTION //Make sure we're still there
-		if(M.lying)
+		if(M.is_mob_incapacitated() || M.body_position != STANDING_UP)
 			return XENO_NO_DELAY_ACTION
 		if(locked)
 			to_chat(M, SPAN_WARNING("[src] is bolted down tight."))
@@ -624,12 +621,6 @@
 				M.visible_message(SPAN_DANGER("[M] pries [src] open."), \
 				SPAN_DANGER("You pry [src] open."), null, 5, CHAT_TYPE_XENO_COMBAT)
 	return XENO_NO_DELAY_ACTION
-
-
-//Nerfing the damn Cargo Tug Train
-/obj/vehicle/train/attack_alien(mob/living/carbon/xenomorph/M)
-	attack_hand(M)
-	return XENO_NONCOMBAT_ACTION
 
 /obj/structure/mineral_door/resin/attack_larva(mob/living/carbon/xenomorph/larva/M)
 	var/turf/cur_loc = M.loc
@@ -776,9 +767,9 @@
 		to_chat(M, SPAN_XENONOTICE("You interact with the machine and disable remote control."))
 		xeno_message(SPAN_XENOANNOUNCE("[message]"),3,M.hivenumber)
 		last_locked = world.time
-		if(almayer_orbital_cannon)
-			almayer_orbital_cannon.is_disabled = TRUE
-			addtimer(CALLBACK(almayer_orbital_cannon, .obj/structure/orbital_cannon/proc/enable), 10 MINUTES, TIMER_UNIQUE)
+		if(GLOB.almayer_orbital_cannon)
+			GLOB.almayer_orbital_cannon.is_disabled = TRUE
+			addtimer(CALLBACK(GLOB.almayer_orbital_cannon, TYPE_PROC_REF(/obj/structure/orbital_cannon, enable)), 10 MINUTES, TIMER_UNIQUE)
 		queen_locked = 1
 
 /datum/shuttle/ferry/marine/proc/door_override(mob/living/carbon/xenomorph/M, shuttle_tag)
@@ -792,17 +783,17 @@
 		if(shuttle_tag == DROPSHIP_NORMANDY)
 			ship_id = "sh_dropship2"
 
-		for(var/obj/structure/machinery/door/airlock/dropship_hatch/D in machines)
+		for(var/obj/structure/machinery/door/airlock/dropship_hatch/D in GLOB.machines)
 			if(D.id == ship_id)
 				D.unlock()
 
 		var/obj/structure/machinery/door/airlock/multi_tile/almayer/reardoor
 		switch(ship_id)
 			if("sh_dropship1")
-				for(var/obj/structure/machinery/door/airlock/multi_tile/almayer/dropshiprear/ds1/D in machines)
+				for(var/obj/structure/machinery/door/airlock/multi_tile/almayer/dropshiprear/ds1/D in GLOB.machines)
 					reardoor = D
 			if("sh_dropship2")
-				for(var/obj/structure/machinery/door/airlock/multi_tile/almayer/dropshiprear/ds2/D in machines)
+				for(var/obj/structure/machinery/door/airlock/multi_tile/almayer/dropshiprear/ds2/D in GLOB.machines)
 					reardoor = D
 		if(!reardoor)
 			CRASH("Shuttle crashed trying to override invalid rear door with shuttle id [ship_id]")
@@ -860,7 +851,7 @@
 		playsound(src, "glassbreak", 70, 1)
 		damaged = TRUE
 		if(is_lit)
-			SetLuminosity(0)
+			set_light(0)
 		update_icon()
 	else
 		playsound(loc, 'sound/effects/Glasshit.ogg', 25, 1)
@@ -991,3 +982,12 @@
 	var/matrix/A = matrix()
 	apply_transform(A)
 	stat &= ~BROKEN //Remove broken. MAGICAL REPAIRS
+
+//Misc
+/obj/structure/prop/invuln/joey/attack_alien(mob/living/carbon/xenomorph/alien)
+	alien.animation_attack_on(src)
+	alien.visible_message(SPAN_DANGER("[alien] [alien.slashes_verb] [src]!"), \
+	SPAN_DANGER("You [alien.slash_verb] [src]!"), null, 5)
+	playsound(loc, "alien_claw_metal", 25, 1)
+	attacked()
+	return XENO_ATTACK_ACTION

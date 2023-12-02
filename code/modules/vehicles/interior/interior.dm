@@ -28,7 +28,7 @@
 	var/atom/exterior = null
 
 	// A list of entry/exit markers in the interior
-	var/list/entrance_markers = list()
+	var/list/entrance_markers
 
 	//check multitile.dm for detailed explanation
 	//common passenger slots
@@ -72,6 +72,7 @@
 	entrance_markers = null
 
 	QDEL_NULL(reservation)
+	SSinterior.interiors -= src
 
 	return ..()
 
@@ -317,7 +318,7 @@
 	var/turf/min = reservation.bottom_left_coords
 	var/turf/max = reservation.top_right_coords
 
-	return list(Floor(min[1] + (max[1] - min[1])), Floor(min[2] + (max[2] - min[2])), min[3])
+	return list(Floor(min[1] + (max[1] - min[1])/2), Floor(min[2] + (max[2] - min[2])/2), min[3])
 
 /datum/interior/proc/get_middle_turf()
 	var/list/turf/bounds = get_bound_turfs()
@@ -332,7 +333,7 @@
 	for(var/turf/T in block(bounds[1], bounds[2]))
 		var/obj/effect/landmark/interior/spawn/entrance/E = locate() in T
 		if(E)
-			entrance_markers += E
+			LAZYADD(entrance_markers, E)
 
 // Spawn interactables like driver and gunner seats
 // Also open view blockers where there are windows

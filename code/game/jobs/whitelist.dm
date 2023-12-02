@@ -11,10 +11,10 @@ GLOBAL_LIST_FILE_LOAD(whitelist, WHITELISTFILE)
 	if(client.admin_holder && (client.admin_holder.rights & R_ADMIN))
 		return TRUE
 	if(job == XENO_CASTE_QUEEN)
-		var/datum/caste_datum/C = RoleAuthority.castes_by_name[XENO_CASTE_QUEEN]
+		var/datum/caste_datum/C = GLOB.RoleAuthority.castes_by_name[XENO_CASTE_QUEEN]
 		return C.can_play_caste(client)
 	if(job == JOB_SURVIVOR)
-		var/datum/job/J = RoleAuthority.roles_by_path[/datum/job/civilian/survivor]
+		var/datum/job/J = GLOB.RoleAuthority.roles_by_path[/datum/job/civilian/survivor]
 		return J.can_play_role(client)
 	return TRUE
 
@@ -39,5 +39,14 @@ GLOBAL_LIST_FILE_LOAD(alien_whitelist, "config/alienwhitelist.txt")
 			if(findtext(lowertext(s),"[lowertext(M.key)] - All"))
 				return 1
 	return 0
+
+/// returns a list of strings containing the whitelists held by a specific ckey
+/proc/get_whitelisted_roles(ckey)
+	if(GLOB.RoleAuthority.roles_whitelist[ckey] & WHITELIST_PREDATOR)
+		LAZYADD(., "predator")
+	if(GLOB.RoleAuthority.roles_whitelist[ckey] & WHITELIST_COMMANDER)
+		LAZYADD(., "commander")
+	if(GLOB.RoleAuthority.roles_whitelist[ckey] & WHITELIST_SYNTHETIC)
+		LAZYADD(., "synthetic")
 
 #undef WHITELISTFILE

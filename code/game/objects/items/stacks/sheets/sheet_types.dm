@@ -10,7 +10,7 @@
 /*
  * Metal
  */
-var/global/list/datum/stack_recipe/metal_recipes = list ( \
+GLOBAL_LIST_INIT_TYPED(metal_recipes, /datum/stack_recipe, list ( \
 	new/datum/stack_recipe("barbed wire", /obj/item/stack/barbed_wire, 1, 1, 20, time = 1 SECONDS, skill_req = SKILL_CONSTRUCTION, skill_lvl = SKILL_CONSTRUCTION_TRAINED), \
 	new/datum/stack_recipe("metal barricade", /obj/structure/barricade/metal, 4, time = 2 SECONDS, one_per_turf = ONE_TYPE_PER_BORDER, on_floor = 1, skill_req = SKILL_CONSTRUCTION, skill_lvl = SKILL_CONSTRUCTION_TRAINED, min_time = 1 SECONDS), \
 	new/datum/stack_recipe("folding metal barricade", /obj/structure/barricade/plasteel/metal, 6, time = 3 SECONDS, one_per_turf = ONE_TYPE_PER_BORDER, on_floor = 1, skill_req = SKILL_CONSTRUCTION, skill_lvl = SKILL_CONSTRUCTION_ENGI, min_time = 1.5 SECONDS), \
@@ -52,9 +52,9 @@ var/global/list/datum/stack_recipe/metal_recipes = list ( \
 	new/datum/stack_recipe("computer frame", /obj/structure/computerframe, 5, time = 25, one_per_turf = ONE_TYPE_PER_TURF, on_floor = 1, skill_req = SKILL_CONSTRUCTION, skill_lvl = SKILL_CONSTRUCTION_MASTER), \
 	new/datum/stack_recipe("machine frame", /obj/structure/machinery/constructable_frame, 5, time = 25, one_per_turf = ONE_TYPE_PER_TURF, on_floor = 1, skill_req = SKILL_CONSTRUCTION, skill_lvl = SKILL_CONSTRUCTION_MASTER), \
 	null, \
-	new/datum/stack_recipe("metal baseball bat", /obj/item/weapon/melee/baseballbat/metal, 10, time = 20, on_floor = 1), \
+	new/datum/stack_recipe("metal baseball bat", /obj/item/weapon/baseballbat/metal, 10, time = 20, on_floor = 1), \
 	null, \
-)
+))
 
 /obj/item/stack/sheet/metal
 	name = "metal sheets"
@@ -68,6 +68,7 @@ var/global/list/datum/stack_recipe/metal_recipes = list ( \
 	amount_sprites = TRUE
 	sheettype = "metal"
 	stack_id = "metal"
+
 
 /obj/item/stack/sheet/metal/small_stack
 	amount = STACK_10
@@ -87,20 +88,20 @@ var/global/list/datum/stack_recipe/metal_recipes = list ( \
 /obj/item/stack/sheet/metal/cyborg
 
 /obj/item/stack/sheet/metal/Initialize(mapload, amount)
-	recipes = metal_recipes
+	recipes = GLOB.metal_recipes
 	return ..()
 
 /*
  * Plasteel
  */
-var/global/list/datum/stack_recipe/plasteel_recipes = list ( \
+GLOBAL_LIST_INIT_TYPED(plasteel_recipes, /datum/stack_recipe, list ( \
 	new/datum/stack_recipe("plasteel barricade", /obj/structure/barricade/plasteel, 8, time = 4 SECONDS, one_per_turf = ONE_TYPE_PER_TURF, on_floor = 1, skill_req = SKILL_CONSTRUCTION, skill_lvl = SKILL_CONSTRUCTION_ENGI, min_time = 2 SECONDS),
 	null, \
 	new/datum/stack_recipe("reinforced window frame", /obj/structure/window_frame/colony/reinforced, 5, time = 40, one_per_turf = ONE_TYPE_PER_TURF, on_floor = 1, skill_req = SKILL_CONSTRUCTION, skill_lvl = SKILL_CONSTRUCTION_ENGI),
 	null, \
 	new/datum/stack_recipe("plasteel rod", /obj/item/stack/rods/plasteel, 1, 1, 30),
 	new/datum/stack_recipe("metal crate", /obj/structure/closet/crate, 5, time = 50, one_per_turf = ONE_TYPE_PER_TURF), \
-	)
+	))
 
 /obj/item/stack/sheet/plasteel
 	name = "plasteel sheet"
@@ -114,9 +115,11 @@ var/global/list/datum/stack_recipe/plasteel_recipes = list ( \
 	amount_sprites = TRUE
 	sheettype = "plasteel"
 	stack_id = "plasteel"
+	ground_offset_x = 4
+	ground_offset_y = 5
 
 /obj/item/stack/sheet/plasteel/New(loc, amount=null)
-	recipes = plasteel_recipes
+	recipes = GLOB.plasteel_recipes
 	return ..()
 
 
@@ -138,21 +141,22 @@ var/global/list/datum/stack_recipe/plasteel_recipes = list ( \
 /*
  * Wood
  */
-var/global/list/datum/stack_recipe/wood_recipes = list ( \
+GLOBAL_LIST_INIT_TYPED(wood_recipes, /datum/stack_recipe, list ( \
 	new/datum/stack_recipe("pair of wooden sandals", /obj/item/clothing/shoes/sandal, 1), \
 	new/datum/stack_recipe("wood floor tile", /obj/item/stack/tile/wood, 1, 4, 20), \
 	/*
 	new/datum/stack_recipe("table parts", /obj/item/frame/table/wood, 2), \
 	 */
+	new/datum/stack_recipe("campfire", /obj/structure/prop/brazier/frame/full/campfire, 5, time = 15, one_per_turf = ONE_TYPE_PER_TURF, on_floor = TRUE), \
 	new/datum/stack_recipe("wooden chair", /obj/structure/bed/chair/wood/normal, 1, time = 10, one_per_turf = ONE_TYPE_PER_TURF, on_floor = 1), \
 	new/datum/stack_recipe("wooden barricade", /obj/structure/barricade/wooden, 5, time = 20, one_per_turf = ONE_TYPE_PER_BORDER, on_floor = 1), \
 	new/datum/stack_recipe("wooden crate", /obj/structure/closet/coffin/woodencrate, 5, time = 15, one_per_turf = ONE_TYPE_PER_TURF, on_floor = 1), \
 	new/datum/stack_recipe("wooden door", /obj/structure/mineral_door/wood, 10, time = 20, one_per_turf = ONE_TYPE_PER_TURF, on_floor = 1), \
 	new/datum/stack_recipe("coffin", /obj/structure/closet/coffin, 5, time = 15, one_per_turf = ONE_TYPE_PER_TURF, on_floor = 1), \
-	new/datum/stack_recipe("baseball bat", /obj/item/weapon/melee/baseballbat, 10, time = 20, on_floor = 1), \
+	new/datum/stack_recipe("baseball bat", /obj/item/weapon/baseballbat, 10, time = 20, on_floor = 1), \
 	new/datum/stack_recipe("wooden cross", /obj/structure/prop/wooden_cross, 2, time = 10, one_per_turf = ONE_TYPE_PER_TURF, on_floor = 1), \
-	new/datum/stack_recipe("wooden pole", /obj/item/weapon/melee/pole, 3, time = 10, one_per_turf = ONE_TYPE_PER_TURF, on_floor = 1) \
-	)
+	new/datum/stack_recipe("wooden pole", /obj/item/weapon/pole, 3, time = 10, one_per_turf = ONE_TYPE_PER_TURF, on_floor = 1) \
+	))
 
 /obj/item/stack/sheet/wood
 	name = "wooden plank"
@@ -180,7 +184,7 @@ var/global/list/datum/stack_recipe/wood_recipes = list ( \
 	icon_state = "sheet-wood"
 
 /obj/item/stack/sheet/wood/New(loc, amount=null)
-	recipes = wood_recipes
+	recipes = GLOB.wood_recipes
 	return ..()
 
 /*
@@ -197,7 +201,7 @@ var/global/list/datum/stack_recipe/wood_recipes = list ( \
 /*
  * Cardboard
  */
-var/global/list/datum/stack_recipe/cardboard_recipes = list ( \
+GLOBAL_LIST_INIT_TYPED(cardboard_recipes, /datum/stack_recipe, list ( \
 	new/datum/stack_recipe("box", /obj/item/storage/box), \
 	new/datum/stack_recipe("donut box", /obj/item/storage/donut_box/empty), \
 	new/datum/stack_recipe("egg box", /obj/item/storage/fancy/egg_box), \
@@ -207,6 +211,7 @@ var/global/list/datum/stack_recipe/cardboard_recipes = list ( \
 	new/datum/stack_recipe("cardborg suit", /obj/item/clothing/suit/cardborg, 3), \
 	new/datum/stack_recipe("cardborg helmet", /obj/item/clothing/head/cardborg), \
 	new/datum/stack_recipe("pizza box", /obj/item/pizzabox), \
+	new/datum/stack_recipe("dartboard", /obj/item/dartboard), \
 	null, \
 	new/datum/stack_recipe_list("folders",list( \
 		new/datum/stack_recipe("blue folder", /obj/item/folder/blue), \
@@ -290,7 +295,7 @@ var/global/list/datum/stack_recipe/cardboard_recipes = list ( \
 
 
 		)) \
-)
+))
 
 /obj/item/stack/sheet/cardboard //BubbleWrap
 	name = "cardboard"
@@ -301,7 +306,7 @@ var/global/list/datum/stack_recipe/cardboard_recipes = list ( \
 	stack_id = "cardboard"
 
 /obj/item/stack/sheet/cardboard/New(loc, amount=null)
-	recipes = cardboard_recipes
+	recipes = GLOB.cardboard_recipes
 	return ..()
 
 /obj/item/stack/sheet/cardboard/small_stack
@@ -316,9 +321,9 @@ var/global/list/datum/stack_recipe/cardboard_recipes = list ( \
 /*
  * Aluminum
  */
-var/global/list/datum/stack_recipe/aluminum_recipes = list ( \
+GLOBAL_LIST_INIT_TYPED(aluminium_recipes, /datum/stack_recipe, list ( \
 	new/datum/stack_recipe("flask", /obj/item/reagent_container/food/drinks/flask, 1)
-	)
+	))
 
 /obj/item/stack/sheet/aluminum
 	name = "aluminum"
@@ -331,9 +336,9 @@ var/global/list/datum/stack_recipe/aluminum_recipes = list ( \
 /*
  * Copper
  */
-var/global/list/datum/stack_recipe/copper_recipes = list ( \
+GLOBAL_LIST_INIT_TYPED(copper_recipes, /datum/stack_recipe, list ( \
 	new/datum/stack_recipe("cable coil", /obj/item/stack/cable_coil, 2, 1, 20, time = 10, skill_req = SKILL_CONSTRUCTION, skill_lvl = SKILL_CONSTRUCTION_TRAINED)
-	)
+	))
 
 /obj/item/stack/sheet/copper
 	name = "copper"

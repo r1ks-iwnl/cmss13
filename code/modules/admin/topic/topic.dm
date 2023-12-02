@@ -50,7 +50,7 @@
 		if(task == "add")
 			var/new_ckey = ckey(input(usr,"New admin's ckey","Admin ckey", null) as text|null)
 			if(!new_ckey) return
-			if(new_ckey in admin_datums)
+			if(new_ckey in GLOB.admin_datums)
 				to_chat(usr, "<font color='red'>Error: Topic 'editrights': [new_ckey] is already an admin</font>")
 				return
 			adm_ckey = new_ckey
@@ -61,20 +61,20 @@
 				to_chat(usr, "<font color='red'>Error: Topic 'editrights': No valid ckey</font>")
 				return
 
-		var/datum/admins/D = admin_datums[adm_ckey]
+		var/datum/admins/D = GLOB.admin_datums[adm_ckey]
 
 		if(task == "remove")
 			if(alert("Are you sure you want to remove [adm_ckey]?","Message","Yes","Cancel") == "Yes")
 				if(!D) return
-				admin_datums -= adm_ckey
+				GLOB.admin_datums -= adm_ckey
 				D.disassociate()
 
 				message_admins("[key_name_admin(usr)] removed [adm_ckey] from the admins list")
 
 		else if(task == "rank")
 			var/new_rank
-			if(admin_ranks.len)
-				new_rank = tgui_input_list(usr, "Please select a rank", "New rank", (admin_ranks|"*New Rank*"))
+			if(GLOB.admin_ranks.len)
+				new_rank = tgui_input_list(usr, "Please select a rank", "New rank", (GLOB.admin_ranks|"*New Rank*"))
 			else
 				new_rank = tgui_input_list(usr, "Please select a rank", "New rank", list("Game Master","Game Admin", "Trial Admin", "Admin Observer","*New Rank*"))
 
@@ -91,15 +91,15 @@
 						to_chat(usr, "<font color='red'>Error: Topic 'editrights': Invalid rank</font>")
 						return
 					if(CONFIG_GET(flag/admin_legacy_system))
-						if(admin_ranks.len)
-							if(new_rank in admin_ranks)
-								rights = admin_ranks[new_rank] //we typed a rank which already exists, use its rights
+						if(GLOB.admin_ranks.len)
+							if(new_rank in GLOB.admin_ranks)
+								rights = GLOB.admin_ranks[new_rank] //we typed a rank which already exists, use its rights
 							else
-								admin_ranks[new_rank] = 0 //add the new rank to admin_ranks
+								GLOB.admin_ranks[new_rank] = 0 //add the new rank to admin_ranks
 				else
 					if(CONFIG_GET(flag/admin_legacy_system))
 						new_rank = ckeyEx(new_rank)
-						rights = admin_ranks[new_rank] //we input an existing rank, use its rights
+						rights = GLOB.admin_ranks[new_rank] //we input an existing rank, use its rights
 
 			if(D)
 				D.disassociate() //remove adminverbs and unlink from client
@@ -131,50 +131,20 @@
 	if(href_list["evac_authority"])
 		switch(href_list["evac_authority"])
 			if("init_evac")
-				if(!EvacuationAuthority.initiate_evacuation())
+				if(!SShijack.initiate_evacuation())
 					to_chat(usr, SPAN_WARNING("You are unable to initiate an evacuation right now!"))
 				else
 					message_admins("[key_name_admin(usr)] called an evacuation.")
 
 			if("cancel_evac")
-				if(!EvacuationAuthority.cancel_evacuation())
+				if(!SShijack.cancel_evacuation())
 					to_chat(usr, SPAN_WARNING("You are unable to cancel an evacuation right now!"))
 				else
 					message_admins("[key_name_admin(usr)] canceled an evacuation.")
 
 			if("toggle_evac")
-				EvacuationAuthority.flags_scuttle ^= FLAGS_EVACUATION_DENY
-				message_admins("[key_name_admin(usr)] has [EvacuationAuthority.flags_scuttle & FLAGS_EVACUATION_DENY ? "forbidden" : "allowed"] ship-wide evacuation.")
-
-			if("force_evac")
-				if(!EvacuationAuthority.begin_launch())
-					to_chat(usr, SPAN_WARNING("You are unable to launch the pods directly right now!"))
-				else
-					message_admins("[key_name_admin(usr)] force-launched the escape pods.")
-
-			if("init_dest")
-				if(!EvacuationAuthority.enable_self_destruct())
-					to_chat(usr, SPAN_WARNING("You are unable to authorize the self-destruct right now!"))
-				else
-					message_admins("[key_name_admin(usr)] force-enabled the self-destruct system.")
-
-			if("cancel_dest")
-				if(!EvacuationAuthority.cancel_self_destruct(1))
-					to_chat(usr, SPAN_WARNING("You are unable to cancel the self-destruct right now!"))
-				else
-					message_admins("[key_name_admin(usr)] canceled the self-destruct system.")
-
-			if("use_dest")
-
-				var/confirm = alert("Are you sure you want to self-destruct the Almayer?", "Self-Destruct", "Yes", "Cancel")
-				if(confirm != "Yes")
-					return
-				message_admins("[key_name_admin(usr)] forced the self-destrust system, destroying the [MAIN_SHIP_NAME].")
-				EvacuationAuthority.trigger_self_destruct()
-
-			if("toggle_dest")
-				EvacuationAuthority.flags_scuttle ^= FLAGS_SELF_DESTRUCT_DENY
-				message_admins("[key_name_admin(usr)] has [EvacuationAuthority.flags_scuttle & FLAGS_SELF_DESTRUCT_DENY ? "forbidden" : "allowed"] the self-destruct system.")
+				SShijack.evac_admin_denied = !SShijack.evac_admin_denied
+				message_admins("[key_name_admin(usr)] has [SShijack.evac_admin_denied ? "forbidden" : "allowed"] ship-wide evacuation.")
 
 //======================================================
 //======================================================
@@ -268,31 +238,31 @@
 		var/reason
 
 		var/banfolder = href_list["unbanupgradeperma"]
-		Banlist.cd = "/base/[banfolder]"
-		var/reason2 = Banlist["reason"]
+		GLOB.Banlist.cd = "/base/[banfolder]"
+		var/reason2 = GLOB.Banlist["reason"]
 
-		var/minutes = Banlist["minutes"]
+		var/minutes = GLOB.Banlist["minutes"]
 
-		var/banned_key = Banlist["key"]
-		Banlist.cd = "/base"
+		var/banned_key = GLOB.Banlist["key"]
+		GLOB.Banlist.cd = "/base"
 
 		var/mins = 0
-		if(minutes > CMinutes)
-			mins = minutes - CMinutes
+		if(minutes > GLOB.CMinutes)
+			mins = minutes - GLOB.CMinutes
 		if(!mins) return
 		mins = max(5255990,mins) // 10 years
-		minutes = CMinutes + mins
+		minutes = GLOB.CMinutes + mins
 		reason = input(usr,"Reason?","reason",reason2) as message|null
 		if(!reason) return
 
 		ban_unban_log_save("[key_name(usr)] upgraded [banned_key]'s ban to a permaban. Reason: [sanitize(reason)]")
 		message_admins("[key_name_admin(usr)] upgraded [banned_key]'s ban to a permaban. Reason: [sanitize(reason)]")
-		Banlist.cd = "/base/[banfolder]"
-		Banlist["reason"] << sanitize(reason)
-		Banlist["temp"] << 0
-		Banlist["minutes"] << minutes
-		Banlist["bannedby"] << usr.ckey
-		Banlist.cd = "/base"
+		GLOB.Banlist.cd = "/base/[banfolder]"
+		GLOB.Banlist["reason"] << sanitize(reason)
+		GLOB.Banlist["temp"] << 0
+		GLOB.Banlist["minutes"] << minutes
+		GLOB.Banlist["bannedby"] << usr.ckey
+		GLOB.Banlist.cd = "/base"
 		unbanpanel()
 
 	else if(href_list["unbane"])
@@ -302,120 +272,40 @@
 		var/reason
 
 		var/banfolder = href_list["unbane"]
-		Banlist.cd = "/base/[banfolder]"
-		var/reason2 = Banlist["reason"]
-		var/temp = Banlist["temp"]
+		GLOB.Banlist.cd = "/base/[banfolder]"
+		var/reason2 = GLOB.Banlist["reason"]
+		var/temp = GLOB.Banlist["temp"]
 
-		var/minutes = Banlist["minutes"]
+		var/minutes = GLOB.Banlist["minutes"]
 
-		var/banned_key = Banlist["key"]
-		Banlist.cd = "/base"
+		var/banned_key = GLOB.Banlist["key"]
+		GLOB.Banlist.cd = "/base"
 
 		var/duration
 
 		var/mins = 0
-		if(minutes > CMinutes)
-			mins = minutes - CMinutes
+		if(minutes > GLOB.CMinutes)
+			mins = minutes - GLOB.CMinutes
 		mins = tgui_input_number(usr,"How long (in minutes)? \n 1440 = 1 day \n 4320 = 3 days \n 10080 = 7 days \n 43800 = 1 Month","Ban time", 1440, 262800, 1)
 		if(!mins) return
 		mins = min(525599,mins)
-		minutes = CMinutes + mins
+		minutes = GLOB.CMinutes + mins
 		duration = GetExp(minutes)
 		reason = input(usr,"Reason?","reason",reason2) as message|null
 		if(!reason) return
 
 		ban_unban_log_save("[key_name(usr)] edited [banned_key]'s ban. Reason: [sanitize(reason)] Duration: [duration]")
 		message_admins("[key_name_admin(usr)] edited [banned_key]'s ban. Reason: [sanitize(reason)] Duration: [duration]")
-		Banlist.cd = "/base/[banfolder]"
-		Banlist["reason"] << sanitize(reason)
-		Banlist["temp"] << temp
-		Banlist["minutes"] << minutes
-		Banlist["bannedby"] << usr.ckey
-		Banlist.cd = "/base"
+		GLOB.Banlist.cd = "/base/[banfolder]"
+		GLOB.Banlist["reason"] << sanitize(reason)
+		GLOB.Banlist["temp"] << temp
+		GLOB.Banlist["minutes"] << minutes
+		GLOB.Banlist["bannedby"] << usr.ckey
+		GLOB.Banlist.cd = "/base"
 		unbanpanel()
 
 	/////////////////////////////////////new ban stuff
 
-	else if(href_list["jobban2"])
-// if(!check_rights(R_BAN)) return
-		/*
-		var/mob/M = locate(href_list["jobban2"])
-		if(!ismob(M))
-			to_chat(usr, "This can only be used on instances of type /mob")
-			return
-
-		if(!M.ckey) //sanity
-			to_chat(usr, "This mob has no ckey")
-			return
-		if(!RoleAuthority)
-			to_chat(usr, "The Role Authority is not set up!")
-			return
-
-		var/datum/entity/player/P = get_player_from_key(M.ckey)
-
-		var/dat = ""
-		var/body
-		var/jobs = ""
-
-	/***********************************WARNING!************************************
-					  The jobban stuff looks mangled and disgusting
-							  But it looks beautiful in-game
-										-Nodrak
-	************************************WARNING!***********************************/
-//Regular jobs
-	//Command (Blue)
-		jobs += generate_job_ban_list(M, ROLES_CIC, "CIC", "ddddff")
-		jobs += "<br>"
-	// SUPPORT
-		jobs += generate_job_ban_list(M, ROLES_AUXIL_SUPPORT, "Support", "ccccff")
-		jobs += "<br>"
-	// MPs
-		jobs += generate_job_ban_list(M, ROLES_POLICE, "Police", "ffdddd")
-		jobs += "<br>"
-	//Engineering (Yellow)
-		jobs += generate_job_ban_list(M, ROLES_ENGINEERING, "Engineering", "fff5cc")
-		jobs += "<br>"
-	//Cargo (Yellow) //Copy paste, yada, yada. Hopefully Snail can rework this in the future.
-		jobs += generate_job_ban_list(M, ROLES_REQUISITION, "Requisition", "fff5cc")
-		jobs += "<br>"
-	//Medical (White)
-		jobs += generate_job_ban_list(M, ROLES_MEDICAL, "Medical", "ffeef0")
-		jobs += "<br>"
-	//Marines
-		jobs += generate_job_ban_list(M, ROLES_MARINES, "Marines", "ffeeee")
-		jobs += "<br>"
-	// MISC
-		jobs += generate_job_ban_list(M, ROLES_MISC, "Misc", "aaee55")
-		jobs += "<br>"
-	// Xenos (Orange)
-		jobs += generate_job_ban_list(M, ROLES_XENO, "Xenos", "a268b1")
-		jobs += "<br>"
-	//Extra (Orange)
-		var/isbanned_dept = jobban_isbanned(M, "Syndicate", P)
-		jobs += "<table cellpadding='1' cellspacing='0' width='100%'>"
-		jobs += "<tr bgcolor='ffeeaa'><th colspan='10'><a href='?src=\ref[src];[HrefToken(forceGlobal = TRUE)];jobban3=Syndicate;jobban4=\ref[M]'>Extras</a></th></tr><tr align='center'>"
-
-		//ERT
-		if(jobban_isbanned(M, "Emergency Response Team", P) || isbanned_dept)
-			jobs += "<td width='20%'><a href='?src=\ref[src];[HrefToken(forceGlobal = TRUE)];jobban3=Emergency Response Team;jobban4=\ref[M]'><font color=red>Emergency Response Team</font></a></td>"
-		else
-			jobs += "<td width='20%'><a href='?src=\ref[src];[HrefToken(forceGlobal = TRUE)];jobban3=Emergency Response Team;jobban4=\ref[M]'>Emergency Response Team</a></td>"
-
-		//Survivor
-		if(jobban_isbanned(M, "Survivor", P) || isbanned_dept)
-			jobs += "<td width='20%'><a href='?src=\ref[src];[HrefToken(forceGlobal = TRUE)];jobban3=Survivor;jobban4=\ref[M]'><font color=red>Survivor</font></a></td>"
-		else
-			jobs += "<td width='20%'><a href='?src=\ref[src];[HrefToken(forceGlobal = TRUE)];jobban3=Survivor;jobban4=\ref[M]'>Survivor</a></td>"
-
-		if(jobban_isbanned(M, "Agent", P) || isbanned_dept)
-			jobs += "<td width='20%'><a href='?src=\ref[src];[HrefToken(forceGlobal = TRUE)];jobban3=Agent;jobban4=\ref[M]'><font color=red>Agent</font></a></td>"
-		else
-			jobs += "<td width='20%'><a href='?src=\ref[src];[HrefToken(forceGlobal = TRUE)];jobban3=Agent;jobban4=\ref[M]'>Agent</a></td>"
-
-		body = "<body>[jobs]</body>"
-		dat = "<tt>[body]</tt>"
-		show_browser(usr, dat, "Job-Ban Panel: [M.name]", "jobban2", "size=800x490")
-		return*/ // DEPRECATED
 	//JOBBAN'S INNARDS
 	else if(href_list["jobban3"])
 		if(!check_rights(R_MOD,0) && !check_rights(R_ADMIN))  return
@@ -430,7 +320,7 @@
 				alert("You cannot perform this action. You must be of a higher administrative rank!")
 				return
 
-		if(!RoleAuthority)
+		if(!GLOB.RoleAuthority)
 			to_chat(usr, "Role Authority has not been set up!")
 			return
 
@@ -443,23 +333,23 @@
 		var/list/joblist = list()
 		switch(href_list["jobban3"])
 			if("CICdept")
-				joblist += get_job_titles_from_list(ROLES_COMMAND)
+				joblist += get_job_titles_from_list(GLOB.ROLES_COMMAND)
 			if("Supportdept")
-				joblist += get_job_titles_from_list(ROLES_AUXIL_SUPPORT)
+				joblist += get_job_titles_from_list(GLOB.ROLES_AUXIL_SUPPORT)
 			if("Policedept")
-				joblist += get_job_titles_from_list(ROLES_POLICE)
+				joblist += get_job_titles_from_list(GLOB.ROLES_POLICE)
 			if("Engineeringdept")
-				joblist += get_job_titles_from_list(ROLES_ENGINEERING)
+				joblist += get_job_titles_from_list(GLOB.ROLES_ENGINEERING)
 			if("Requisitiondept")
-				joblist += get_job_titles_from_list(ROLES_REQUISITION)
+				joblist += get_job_titles_from_list(GLOB.ROLES_REQUISITION)
 			if("Medicaldept")
-				joblist += get_job_titles_from_list(ROLES_MEDICAL)
+				joblist += get_job_titles_from_list(GLOB.ROLES_MEDICAL)
 			if("Marinesdept")
-				joblist += get_job_titles_from_list(ROLES_MARINES)
+				joblist += get_job_titles_from_list(GLOB.ROLES_MARINES)
 			if("Miscdept")
-				joblist += get_job_titles_from_list(ROLES_MISC)
+				joblist += get_job_titles_from_list(GLOB.ROLES_MISC)
 			if("Xenosdept")
-				joblist += get_job_titles_from_list(ROLES_XENO)
+				joblist += get_job_titles_from_list(GLOB.ROLES_XENO)
 			else
 				joblist += href_list["jobban3"]
 
@@ -565,7 +455,7 @@
 		switch(alert("Are you sure you want to EORG ban [M.ckey]?", , "Yes", "No"))
 			if("Yes")
 				mins = 180
-				reason = "EORG"
+				reason = "EORG - Generating combat logs with, or otherwise griefing, friendly/allied players."
 			if("No")
 				return
 		var/datum/entity/player/P = get_player_from_key(M.ckey) // you may not be logged in, but I will find you and I will ban you
@@ -672,22 +562,8 @@
 		var/dat = {"<B>What mode do you wish to play?</B><HR>"}
 		for(var/mode in config.modes)
 			dat += {"<A HREF='?_src_=admin_holder;[HrefToken(forceGlobal = TRUE)];c_mode2=[mode]'>[config.mode_names[mode]]</A><br>"}
-		dat += {"Now: [master_mode]"}
+		dat += {"Now: [GLOB.master_mode]"}
 		show_browser(usr, dat, "Change Gamemode", "c_mode")
-
-	else if(href_list["f_secret"])
-		if(!check_rights(R_ADMIN)) return
-
-		if(SSticker.mode)
-			return alert(usr, "The game has already started.", null, null, null, null)
-		if(master_mode != "secret")
-			return alert(usr, "The game mode has to be secret!", null, null, null, null)
-		var/dat = {"<B>What game mode do you want to force secret to be? Use this if you want to change the game mode, but want the players to believe it's secret. This will only work if the current game mode is secret.</B><HR>"}
-		for(var/mode in config.modes)
-			dat += {"<A HREF='?_src_=admin_holder;[HrefToken(forceGlobal = TRUE)];f_secret2=[mode]'>[config.mode_names[mode]]</A><br>"}
-		dat += {"<A HREF='?_src_=admin_holder;[HrefToken(forceGlobal = TRUE)];f_secret2=secret'>Random (default)</A><br>"}
-		dat += {"Now: [secret_force_mode]"}
-		show_browser(usr, dat, "Change Secret Gamemode", "f_secret")
 
 	else if(href_list["c_mode2"])
 		if(!check_rights(R_ADMIN|R_SERVER)) return
@@ -697,20 +573,6 @@
 		to_world(SPAN_NOTICE("<b><i>The mode is now: [GLOB.master_mode]!</i></b>"))
 		Game() // updates the main game menu
 		SSticker.save_mode(GLOB.master_mode)
-		.(href, list("c_mode"=1))
-
-
-	else if(href_list["f_secret2"])
-		if(!check_rights(R_ADMIN|R_SERVER)) return
-
-		if(SSticker.mode)
-			return alert(usr, "The game has already started.", null, null, null, null)
-		if(master_mode != "secret")
-			return alert(usr, "The game mode has to be secret!", null, null, null, null)
-		secret_force_mode = href_list["f_secret2"]
-		message_admins("[key_name_admin(usr)] set the forced secret mode as [secret_force_mode].")
-		Game() // updates the main game menu
-		.(href, list("f_secret"=1))
 
 	else if(href_list["monkeyone"])
 		if(!check_rights(R_SPAWN)) return
@@ -722,17 +584,6 @@
 
 		message_admins("[key_name_admin(usr)] attempting to monkeyize [key_name_admin(H)]")
 		H.monkeyize()
-
-	else if(href_list["corgione"])
-		if(!check_rights(R_SPAWN)) return
-
-		var/mob/living/carbon/human/H = locate(href_list["corgione"])
-		if(!istype(H))
-			to_chat(usr, "This can only be used on instances of type /mob/living/carbon/human")
-			return
-
-		message_admins("[key_name_admin(usr)] attempting to corgize [key_name_admin(H)]")
-		H.corgize()
 
 	else if(href_list["forcespeech"])
 		if(!check_rights(R_ADMIN)) return
@@ -836,14 +687,14 @@
 
 		if(href_list["makecultist"])
 			var/datum/equipment_preset/preset = GLOB.gear_path_presets_list[/datum/equipment_preset/other/xeno_cultist]
-			preset.load_race(H, hive.hivenumber)
-			preset.load_status(H)
+			preset.load_race(H)
+			preset.load_status(H, hive.hivenumber)
 			message_admins("[key_name_admin(usr)] has made [key_name_admin(H)] into a cultist for [hive.name].")
 
 		else if(href_list["makecultistleader"])
 			var/datum/equipment_preset/preset = GLOB.gear_path_presets_list[/datum/equipment_preset/other/xeno_cultist/leader]
-			preset.load_race(H, hive.hivenumber)
-			preset.load_status(H)
+			preset.load_race(H)
+			preset.load_status(H, hive.hivenumber)
 			message_admins("[key_name_admin(usr)] has made [key_name_admin(H)] into a cultist leader for [hive.name].")
 
 		H.faction = hive.internal_faction
@@ -982,7 +833,8 @@
 		message_admins("[key_name_admin(usr)] has sent [key_name_admin(M)] to the thunderdome. (Observer.)", 1)
 
 	else if(href_list["revive"])
-		if(!check_rights(R_REJUVINATE)) return
+		if(!check_rights(R_MOD))
+			return
 
 		var/mob/living/L = locate(href_list["revive"])
 		if(!istype(L))
@@ -1059,7 +911,7 @@
 				H.mind.transfer_to(M)
 			else
 				M.key = H.key
-				if(M.client) M.client.change_view(world_view_size)
+				if(M.client) M.client.change_view(GLOB.world_view_size)
 
 			if(M.skills)
 				qdel(M.skills)
@@ -1068,7 +920,7 @@
 			if(is_alien_whitelisted(M,"Yautja Elder"))
 				M.change_real_name(M, "Elder [y_name]")
 				H.equip_to_slot_or_del(new /obj/item/clothing/suit/armor/yautja/hunter/full(H), WEAR_JACKET)
-				H.equip_to_slot_or_del(new /obj/item/weapon/melee/twohanded/yautja/glaive(H), WEAR_L_HAND)
+				H.equip_to_slot_or_del(new /obj/item/weapon/twohanded/yautja/glaive(H), WEAR_L_HAND)
 			else
 				M.change_real_name(M, y_name)
 			M.name = "Unknown" // Yautja names are not visible for oomans
@@ -1128,7 +980,7 @@
 		sleep(2)
 		if(isobserver(usr))
 			var/mob/dead/observer/G = usr
-			G.ManualFollow(M)
+			G.do_observe(M)
 
 	else if(href_list["check_antagonist"])
 		check_antagonists()
@@ -1154,7 +1006,7 @@
 			return
 		if(alert("Are you sure you want to cancel this OB?",,"Yes","No") != "Yes")
 			return
-		orbital_cannon_cancellation["[cancel_token]"] = null
+		GLOB.orbital_cannon_cancellation["[cancel_token]"] = null
 		message_admins("[src.owner] has cancelled the orbital strike.")
 
 	else if(href_list["admincancelpredsd"])
@@ -1241,8 +1093,8 @@
 		log_admin("[src.owner] replied to [key_name(H)]'s USCM message with the message [input].")
 		for(var/client/X in GLOB.admins)
 			if((R_ADMIN|R_MOD) & X.admin_holder.rights)
-				to_chat(X, "<b>ADMINS/MODS: \red [src.owner] replied to [key_name(H)]'s USCM message with: \blue \")[input]\"</b>")
-		to_chat(H, SPAN_DANGER("You hear something crackle in your headset before a voice speaks, please stand by for a message from USCM:\" \blue <b>\"[input]\"</b>"))
+				to_chat(X, SPAN_STAFF_IC("<b>ADMINS/MODS: \red [src.owner] replied to [key_name(H)]'s USCM message with: \blue \")[input]\"</b>"))
+		to_chat(H, SPAN_DANGER("You hear something crackle in your headset before a voice speaks, please stand by for a message:\" \blue <b>\"[input]\"</b>"))
 
 	else if(href_list["SyndicateReply"])
 		var/mob/living/carbon/human/H = locate(href_list["SyndicateReply"])
@@ -1265,18 +1117,101 @@
 		var/obj/structure/machinery/faxmachine/fax = locate(href_list["originfax"])
 		fax.update_departments()
 
+	else if(href_list["PressFaxReply"])
+		var/mob/living/carbon/human/H = locate(href_list["PressFaxReply"])
+		var/obj/structure/machinery/faxmachine/fax = locate(href_list["originfax"])
+
+		var/template_choice = tgui_input_list(usr, "Use which template or roll your own?", "Fax Templates", list("Template", "Custom"))
+		if(!template_choice) return
+		var/datum/fax/fax_message
+		var/organization_type = ""
+		switch(template_choice)
+			if("Custom")
+				var/input = input(src.owner, "Please enter a message to reply to [key_name(H)] via secure connection. NOTE: BBCode does not work, but HTML tags do! Use <br> for line breaks.", "Outgoing message from Press", "") as message|null
+				if(!input)
+					return
+				fax_message = new(input)
+			if("Template")
+				var/subject = input(src.owner, "Enter subject line", "Outgoing message from Press", "") as message|null
+				if(!subject)
+					return
+				var/addressed_to = ""
+				var/address_option = tgui_input_list(usr, "Address it to the sender or custom?", "Fax Template", list("Sender", "Custom"))
+				if(address_option == "Sender")
+					addressed_to = "[H.real_name]"
+				else if(address_option == "Custom")
+					addressed_to = input(src.owner, "Enter Addressee Line", "Outgoing message from Press", "") as message|null
+					if(!addressed_to)
+						return
+				else
+					return
+				var/message_body = input(src.owner, "Enter Message Body, use <p></p> for paragraphs", "Outgoing message from Press", "") as message|null
+				if(!message_body)
+					return
+				var/sent_by = input(src.owner, "Enter the name and rank you are sending from.", "Outgoing message from Press", "") as message|null
+				if(!sent_by)
+					return
+				organization_type = input(src.owner, "Enter the organization you are sending from.", "Outgoing message from Press", "") as message|null
+				if(!organization_type)
+					return
+
+				fax_message = new(generate_templated_fax(0, organization_type, subject, addressed_to, message_body, sent_by, "Editor in Chief", organization_type))
+		show_browser(usr, "<body class='paper'>[fax_message.data]</body>", "pressfaxpreview", "size=500x400")
+		var/send_choice = tgui_input_list(usr, "Send this fax?", "Fax Template", list("Send", "Cancel"))
+		if(send_choice != "Send")
+			return
+		GLOB.fax_contents += fax_message // save a copy
+		var/customname = input(src.owner, "Pick a title for the report", "Title") as text|null
+
+		GLOB.USCMFaxes.Add("<a href='?FaxView=\ref[fax_message]'>\[view '[customname]' from [key_name(usr)] at [time2text(world.timeofday, "hh:mm:ss")]\]</a>")
+
+		var/msg_ghost = SPAN_NOTICE("<b><font color='#1F66A0'>PRESS REPLY: </font></b> ")
+		msg_ghost += "Transmitting '[customname]' via secure connection ... "
+		msg_ghost += "<a href='?FaxView=\ref[fax_message]'>view message</a>"
+		announce_fax(msg_ghost = msg_ghost)
+
+		for(var/obj/structure/machinery/faxmachine/F in GLOB.machines)
+			if(F == fax)
+				if(!(F.inoperable()))
+
+					// animate! it's alive!
+					flick("faxreceive", F)
+
+					// give the sprite some time to flick
+					spawn(20)
+						var/obj/item/paper/P = new /obj/item/paper( F.loc )
+						P.name = "[organization_type] - [customname]"
+						P.info = fax_message.data
+						P.update_icon()
+
+						playsound(F.loc, "sound/machines/fax.ogg", 15)
+
+						// Stamps
+						var/image/stampoverlay = image('icons/obj/items/paper.dmi')
+						stampoverlay.icon_state = "paper_stamp-uscm"
+						if(!P.stamped)
+							P.stamped = new
+						P.stamped += /obj/item/tool/stamp
+						P.overlays += stampoverlay
+						P.stamps += "<HR><i>This paper has been stamped by the Free Press Quantum Relay.</i>"
+
+				to_chat(src.owner, "Message reply to transmitted successfully.")
+				message_admins(SPAN_STAFF_IC("[key_name_admin(src.owner)] replied to a fax message from [key_name_admin(H)]"), 1)
+				return
+		to_chat(src.owner, "/red Unable to locate fax!")
 	else if(href_list["USCMFaxReply"])
 		var/mob/living/carbon/human/H = locate(href_list["USCMFaxReply"])
 		var/obj/structure/machinery/faxmachine/fax = locate(href_list["originfax"])
 
 		var/template_choice = tgui_input_list(usr, "Use which template or roll your own?", "Fax Templates", list("USCM High Command", "USCM Provost General", "Custom"))
-		var/fax_message = ""
+		if(!template_choice) return
+		var/datum/fax/fax_message
 		switch(template_choice)
 			if("Custom")
 				var/input = input(src.owner, "Please enter a message to reply to [key_name(H)] via secure connection. NOTE: BBCode does not work, but HTML tags do! Use <br> for line breaks.", "Outgoing message from USCM", "") as message|null
 				if(!input)
 					return
-				fax_message = "[input]"
+				fax_message = new(input)
 			if("USCM High Command", "USCM Provost General")
 				var/subject = input(src.owner, "Enter subject line", "Outgoing message from USCM", "") as message|null
 				if(!subject)
@@ -1301,23 +1236,23 @@
 				if(template_choice == "USCM High Command")
 					sent_title = "USCM High Command"
 
-				fax_message = generate_templated_fax(0, "USCM CENTRAL COMMAND", subject,addressed_to, message_body,sent_by, sent_title, "United States Colonial Marine Corps")
-		show_browser(usr, "<body class='paper'>[fax_message]</body>", "uscmfaxpreview", "size=500x400")
+				fax_message = new(generate_templated_fax(0, "USCM CENTRAL COMMAND", subject,addressed_to, message_body,sent_by, sent_title, "United States Colonial Marine Corps"))
+		show_browser(usr, "<body class='paper'>[fax_message.data]</body>", "uscmfaxpreview", "size=500x400")
 		var/send_choice = tgui_input_list(usr, "Send this fax?", "Fax Template", list("Send", "Cancel"))
-		if(send_choice == "Cancel")
+		if(send_choice != "Send")
 			return
 		GLOB.fax_contents += fax_message // save a copy
 
-		GLOB.USCMFaxes.Add("<a href='?FaxView=\ref[fax_message]'>\[view reply at [world.timeofday]\]</a>")
-
 		var/customname = input(src.owner, "Pick a title for the report", "Title") as text|null
+
+		GLOB.USCMFaxes.Add("<a href='?FaxView=\ref[fax_message]'>\[view '[customname]' from [key_name(usr)] at [time2text(world.timeofday, "hh:mm:ss")]\]</a>")
 
 		var/msg_ghost = SPAN_NOTICE("<b><font color='#1F66A0'>USCM FAX REPLY: </font></b> ")
 		msg_ghost += "Transmitting '[customname]' via secure connection ... "
 		msg_ghost += "<a href='?FaxView=\ref[fax_message]'>view message</a>"
 		announce_fax( ,msg_ghost)
 
-		for(var/obj/structure/machinery/faxmachine/F in machines)
+		for(var/obj/structure/machinery/faxmachine/F in GLOB.machines)
 			if(F == fax)
 				if(!(F.inoperable()))
 
@@ -1328,7 +1263,7 @@
 					spawn(20)
 						var/obj/item/paper/P = new /obj/item/paper( F.loc )
 						P.name = "USCM High Command - [customname]"
-						P.info = fax_message
+						P.info = fax_message.data
 						P.update_icon()
 
 						playsound(F.loc, "sound/machines/fax.ogg", 15)
@@ -1343,7 +1278,7 @@
 						P.stamps += "<HR><i>This paper has been stamped by the USCM High Command Quantum Relay.</i>"
 
 				to_chat(src.owner, "Message reply to transmitted successfully.")
-				message_admins("[key_name_admin(src.owner)] replied to a fax message from [key_name_admin(H)]", 1)
+				message_admins(SPAN_STAFF_IC("[key_name_admin(src.owner)] replied to a fax message from [key_name_admin(H)]"), 1)
 				return
 		to_chat(src.owner, "/red Unable to locate fax!")
 
@@ -1352,13 +1287,14 @@
 		var/obj/structure/machinery/faxmachine/fax = locate(href_list["originfax"])
 
 		var/template_choice = tgui_input_list(usr, "Use the template or roll your own?", "Fax Template", list("Template", "Custom"))
-		var/fax_message = ""
+		if(!template_choice) return
+		var/datum/fax/fax_message
 		switch(template_choice)
 			if("Custom")
 				var/input = input(src.owner, "Please enter a message to reply to [key_name(H)] via secure connection. NOTE: BBCode does not work, but HTML tags do! Use <br> for line breaks.", "Outgoing message from Weyland-Yutani", "") as message|null
 				if(!input)
 					return
-				fax_message = "[input]"
+				fax_message = new(input)
 			if("Template")
 				var/subject = input(src.owner, "Enter subject line", "Outgoing message from Weyland-Yutani", "") as message|null
 				if(!subject)
@@ -1379,18 +1315,18 @@
 				var/sent_by = input(src.owner, "Enter JUST the name you are sending this from", "Outgoing message from Weyland-Yutani", "") as message|null
 				if(!sent_by)
 					return
-				fax_message = generate_templated_fax(1, "WEYLAND-YUTANI CORPORATE AFFAIRS - [MAIN_SHIP_NAME]", subject, addressed_to, message_body, sent_by, "Corporate Affairs Director", "Weyland-Yutani")
-		show_browser(usr, "<body class='paper'>[fax_message]</body>", "clfaxpreview", "size=500x400")
+				fax_message = new(generate_templated_fax(1, "WEYLAND-YUTANI CORPORATE AFFAIRS - [MAIN_SHIP_NAME]", subject, addressed_to, message_body, sent_by, "Corporate Affairs Director", "Weyland-Yutani"))
+		show_browser(usr, "<body class='paper'>[fax_message.data]</body>", "clfaxpreview", "size=500x400")
 		var/send_choice = tgui_input_list(usr, "Send this fax?", "Fax Confirmation", list("Send", "Cancel"))
-		if(send_choice == "Cancel")
+		if(send_choice != "Send")
 			return
 		GLOB.fax_contents += fax_message // save a copy
-
-		GLOB.WYFaxes.Add("<a href='?FaxView=\ref[fax_message]'>\[view reply at [world.timeofday]\]</a>") //Add replies so that mods know what the hell is goin on with the RP
 
 		var/customname = input(src.owner, "Pick a title for the report", "Title") as text|null
 		if(!customname)
 			return
+
+		GLOB.WYFaxes.Add("<a href='?FaxView=\ref[fax_message]'>\[view '[customname]' from [key_name(usr)] at [time2text(world.timeofday, "hh:mm:ss")]\]</a>") //Add replies so that mods know what the hell is goin on with the RP
 
 		var/msg_ghost = SPAN_NOTICE("<b><font color='#1F66A0'>WEYLAND-YUTANI FAX REPLY: </font></b> ")
 		msg_ghost += "Transmitting '[customname]' via secure connection ... "
@@ -1398,7 +1334,7 @@
 		announce_fax( ,msg_ghost)
 
 
-		for(var/obj/structure/machinery/faxmachine/F in machines)
+		for(var/obj/structure/machinery/faxmachine/F in GLOB.machines)
 			if(F == fax)
 				if(!(F.inoperable()))
 
@@ -1409,14 +1345,14 @@
 					spawn(20)
 						var/obj/item/paper/P = new /obj/item/paper( F.loc )
 						P.name = "Weyland-Yutani - [customname]"
-						P.info = fax_message
+						P.info = fax_message.data
 						P.update_icon()
 
 						playsound(F.loc, "sound/machines/fax.ogg", 15)
 
 						// Stamps
 						var/image/stampoverlay = image('icons/obj/items/paper.dmi')
-						stampoverlay.icon_state = "paper_stamp-cent"
+						stampoverlay.icon_state = "paper_stamp-weyyu"
 						if(!P.stamped)
 							P.stamped = new
 						P.stamped += /obj/item/tool/stamp
@@ -1424,7 +1360,89 @@
 						P.stamps += "<HR><i>This paper has been stamped and encrypted by the Weyland-Yutani Quantum Relay (tm).</i>"
 
 				to_chat(src.owner, "Message reply to transmitted successfully.")
-				message_admins("[key_name_admin(src.owner)] replied to a fax message from [key_name_admin(H)]", 1)
+				message_admins(SPAN_STAFF_IC("[key_name_admin(src.owner)] replied to a fax message from [key_name_admin(H)]"), 1)
+				return
+		to_chat(src.owner, "/red Unable to locate fax!")
+
+	else if(href_list["CMBFaxReply"])
+		var/mob/living/carbon/human/H = locate(href_list["CMBFaxReply"])
+		var/obj/structure/machinery/faxmachine/fax = locate(href_list["originfax"])
+
+		var/template_choice = tgui_input_list(usr, "Use the template or roll your own?", "Fax Template", list("Anchorpoint", "Custom"))
+		if(!template_choice) return
+		var/datum/fax/fax_message
+		switch(template_choice)
+			if("Custom")
+				var/input = input(src.owner, "Please enter a message to reply to [key_name(H)] via secure connection. NOTE: BBCode does not work, but HTML tags do! Use <br> for line breaks.", "Outgoing message from The Colonial Marshal Bureau", "") as message|null
+				if(!input)
+					return
+				fax_message = new(input)
+			if("Anchorpoint")
+				var/subject = input(src.owner, "Enter subject line", "Outgoing message from The Colonial Marshal Bureau, Anchorpoint Station", "") as message|null
+				if(!subject)
+					return
+				var/addressed_to = ""
+				var/address_option = tgui_input_list(usr, "Address it to the sender or custom?", "Fax Template", list("Sender", "Custom"))
+				if(address_option == "Sender")
+					addressed_to = "[H.real_name]"
+				else if(address_option == "Custom")
+					addressed_to = input(src.owner, "Enter Addressee Line", "Outgoing message from The Colonial Marshal Bureau", "") as message|null
+					if(!addressed_to)
+						return
+				else
+					return
+				var/message_body = input(src.owner, "Enter Message Body, use <p></p> for paragraphs", "Outgoing message from The Colonial Marshal Bureau", "") as message|null
+				if(!message_body)
+					return
+				var/sent_by = input(src.owner, "Enter JUST the name you are sending this from", "Outgoing message from The Colonial Marshal Bureau", "") as message|null
+				if(!sent_by)
+					return
+				fax_message = new(generate_templated_fax(0, "COLONIAL MARSHAL BUREAU INCIDENT COMMAND CENTER - ANCHORPOINT STATION", subject, addressed_to, message_body, sent_by, "Supervisory Deputy Marshal", "Colonial Marshal Bureau"))
+		show_browser(usr, "<body class='paper'>[fax_message.data]</body>", "PREVIEW OF CMB FAX", "size=500x400")
+		var/send_choice = tgui_input_list(usr, "Send this fax?", "Fax Confirmation", list("Send", "Cancel"))
+		if(send_choice != "Send")
+			return
+		GLOB.fax_contents += fax_message // save a copy
+
+		var/customname = input(src.owner, "Pick a title for the report", "Title") as text|null
+		if(!customname)
+			return
+
+		GLOB.CMBFaxes.Add("<a href='?FaxView=\ref[fax_message]'>\[view '[customname]' from [key_name(usr)] at [time2text(world.timeofday, "hh:mm:ss")]\]</a>") //Add replies so that mods know what the hell is goin on with the RP
+
+		var/msg_ghost = SPAN_NOTICE("<b><font color='#1b748c'>COLONIAL MARSHAL BUREAU FAX REPLY: </font></b> ")
+		msg_ghost += "Transmitting '[customname]' via secure connection ... "
+		msg_ghost += "<a href='?FaxView=\ref[fax_message]'>view message</a>"
+		announce_fax( ,msg_ghost)
+
+
+		for(var/obj/structure/machinery/faxmachine/F in GLOB.machines)
+			if(F == fax)
+				if(!(F.inoperable()))
+
+					// animate! it's alive!
+					flick("faxreceive", F)
+
+					// give the sprite some time to flick
+					spawn(20)
+						var/obj/item/paper/P = new /obj/item/paper( F.loc )
+						P.name = "Colonial Marshal Bureau - [customname]"
+						P.info = fax_message.data
+						P.update_icon()
+
+						playsound(F.loc, "sound/machines/fax.ogg", 15)
+
+						// Stamps
+						var/image/stampoverlay = image('icons/obj/items/paper.dmi')
+						stampoverlay.icon_state = "paper_stamp-cmb"
+						if(!P.stamped)
+							P.stamped = new
+						P.stamped += /obj/item/tool/stamp
+						P.overlays += stampoverlay
+						P.stamps += "<HR><i>This paper has been stamped by The Office of Colonial Marshals.</i>"
+
+				to_chat(src.owner, "Message reply to transmitted successfully.")
+				message_admins(SPAN_STAFF_IC("[key_name_admin(src.owner)] replied to a fax message from [key_name_admin(H)]"), 1)
 				return
 		to_chat(src.owner, "/red Unable to locate fax!")
 
@@ -1715,46 +1733,95 @@
 
 	if(href_list["ccdeny"]) // CentComm-deny. The distress call is denied, without any further conditions
 		var/mob/ref_person = locate(href_list["ccdeny"])
-		marine_announcement("The distress signal has not received a response, the launch tubes are now recalibrating.", "Distress Beacon")
+		marine_announcement("The distress signal has not received a response, the launch tubes are now recalibrating.", "Distress Beacon", logging = ARES_LOG_SECURITY)
 		log_game("[key_name_admin(usr)] has denied a distress beacon, requested by [key_name_admin(ref_person)]")
 		message_admins("[key_name_admin(usr)] has denied a distress beacon, requested by [key_name_admin(ref_person)]", 1)
 
 		//unanswered_distress -= ref_person
 
 	if(href_list["distresscancel"])
-		if(distress_cancel)
+		if(GLOB.distress_cancel)
 			to_chat(usr, "The distress beacon was either canceled, or you are too late to cancel.")
 			return
 		log_game("[key_name_admin(usr)] has canceled the distress beacon.")
 		message_admins("[key_name_admin(usr)] has canceled the distress beacon.")
-		distress_cancel = TRUE
+		GLOB.distress_cancel = TRUE
 		return
 
 	if(href_list["distress"]) //Distress Beacon, sends a random distress beacon when pressed
-		distress_cancel = FALSE
+		GLOB.distress_cancel = FALSE
 		message_admins("[key_name_admin(usr)] has opted to SEND the distress beacon! Launching in 10 seconds... (<A HREF='?_src_=admin_holder;[HrefToken(forceGlobal = TRUE)];distresscancel=\ref[usr]'>CANCEL</A>)")
 		addtimer(CALLBACK(src, PROC_REF(accept_ert), usr, locate(href_list["distress"])), 10 SECONDS)
 		//unanswered_distress -= ref_person
 
+	if(href_list["distress_handheld"]) //Prepares to call and logs accepted handheld distress beacons
+		var/mob/ref_person = href_list["distress_handheld"]
+		var/ert_name = href_list["ert_name"]
+		GLOB.distress_cancel = FALSE
+		message_admins("[key_name_admin(usr)] has opted to SEND [ert_name]! Launching in 10 seconds... (<A HREF='?_src_=admin_holder;[HrefToken(forceGlobal = TRUE)];distresscancel=\ref[usr]'>CANCEL</A>)")
+		addtimer(CALLBACK(src, PROC_REF(accept_handheld_ert), usr, ref_person, ert_name), 10 SECONDS)
+
+	if(href_list["deny_distress_handheld"]) //Logs denied handheld distress beacons
+		var/mob/ref_person = href_list["deny_distress_handheld"]
+		to_chat(ref_person, "The distress signal has not received a response.")
+		log_game("[key_name_admin(usr)] has denied a distress beacon, requested by [key_name_admin(ref_person)]")
+		message_admins("[key_name_admin(usr)] has denied a distress beacon, requested by [key_name_admin(ref_person)]")
+
 	if(href_list["destroyship"]) //Distress Beacon, sends a random distress beacon when pressed
-		destroy_cancel = FALSE
+		GLOB.destroy_cancel = FALSE
 		message_admins("[key_name_admin(usr)] has opted to GRANT the self-destruct! Starting in 10 seconds... (<A HREF='?_src_=admin_holder;[HrefToken(forceGlobal = TRUE)];sdcancel=\ref[usr]'>CANCEL</A>)")
 		spawn(100)
-			if(distress_cancel)
+			if(GLOB.distress_cancel)
 				return
 			var/mob/ref_person = locate(href_list["destroyship"])
 			set_security_level(SEC_LEVEL_DELTA)
 			log_game("[key_name_admin(usr)] has granted self-destruct, requested by [key_name_admin(ref_person)]")
 			message_admins("[key_name_admin(usr)] has granted self-destruct, requested by [key_name_admin(ref_person)]", 1)
 
+	if(href_list["nukeapprove"])
+		var/mob/ref_person = locate(href_list["nukeapprove"])
+		if(!istype(ref_person))
+			return FALSE
+		var/nuketype = "Encrypted Operational Nuke"
+		var/prompt = tgui_alert(usr, "Do you want the nuke to be Encrypted?", "Nuke Type", list("Encrypted", "Decrypted"), 20 SECONDS)
+		if(prompt == "Decrypted")
+			nuketype = "Decrypted Operational Nuke"
+		prompt = tgui_alert(usr, "Are you sure you want to authorize a [nuketype] to the marines? This will greatly affect the round!", "DEFCON 1", list("No", "Yes"))
+		if(prompt != "Yes")
+			return
+
+		//make ASRS order for nuke
+		var/datum/supply_order/new_order = new()
+		new_order.ordernum = GLOB.supply_controller.ordernum
+		GLOB.supply_controller.ordernum++
+		new_order.object = GLOB.supply_controller.supply_packs[nuketype]
+		new_order.orderedby = ref_person
+		new_order.approvedby = "USCM High Command"
+		GLOB.supply_controller.shoppinglist += new_order
+
+		//Can no longer request a nuke
+		GLOB.ares_datacore.nuke_available = FALSE
+
+		marine_announcement("A nuclear device has been authorized by High Command and will be delivered to requisitions via ASRS.", "NUCLEAR ORDNANCE AUTHORIZED", 'sound/misc/notice2.ogg', logging = ARES_LOG_MAIN)
+		log_game("[key_name_admin(usr)] has authorized a [nuketype], requested by [key_name_admin(ref_person)]")
+		message_admins("[key_name_admin(usr)] has authorized a [nuketype], requested by [key_name_admin(ref_person)]")
+
+	if(href_list["nukedeny"])
+		var/mob/ref_person = locate(href_list["nukedeny"])
+		if(!istype(ref_person))
+			return FALSE
+		marine_announcement("Your request for nuclear ordnance deployment has been reviewed and denied by USCM High Command for operational security and colonial preservation reasons. Have a good day.", "NUCLEAR ORDNANCE DENIED", 'sound/misc/notice2.ogg', logging = ARES_LOG_MAIN)
+		log_game("[key_name_admin(usr)] has denied nuclear ordnance, requested by [key_name_admin(ref_person)]")
+		message_admins("[key_name_admin(usr)] has dnied nuclear ordnance, requested by [key_name_admin(ref_person)]")
+
 	if(href_list["sddeny"]) // CentComm-deny. The self-destruct is denied, without any further conditions
 		var/mob/ref_person = locate(href_list["sddeny"])
-		marine_announcement("The self-destruct request has not received a response, ARES is now recalculating statistics.", "Self-Destruct System")
+		marine_announcement("The self-destruct request has not received a response, ARES is now recalculating statistics.", "Self-Destruct System", logging = ARES_LOG_SECURITY)
 		log_game("[key_name_admin(usr)] has denied self-destruct, requested by [key_name_admin(ref_person)]")
 		message_admins("[key_name_admin(usr)] has denied self-destruct, requested by [key_name_admin(ref_person)]", 1)
 
 	if(href_list["sdcancel"])
-		if(destroy_cancel)
+		if(GLOB.destroy_cancel)
 			to_chat(usr, "The self-destruct was already canceled.")
 			return
 		if(get_security_level() == "delta")
@@ -1762,7 +1829,7 @@
 			return
 		log_game("[key_name_admin(usr)] has canceled the self-destruct.")
 		message_admins("[key_name_admin(usr)] has canceled the self-destruct.")
-		destroy_cancel = 1
+		GLOB.destroy_cancel = TRUE
 		return
 
 	if(href_list["tag_datum"])
@@ -1828,15 +1895,63 @@
 
 		player_notes_all(checking.key)
 
+	if(href_list["AresReply"])
+		var/mob/living/carbon/human/speaker = locate(href_list["AresReply"])
+
+		if(!istype(speaker))
+			to_chat(usr, "This can only be used on instances of type /mob/living/carbon/human")
+			return FALSE
+
+		if((!GLOB.ares_link.interface) || (GLOB.ares_link.interface.inoperable()))
+			to_chat(usr, "ARES Interface offline.")
+			return FALSE
+
+		var/input = input(src.owner, "Please enter a message from ARES to reply to [key_name(speaker)].","Outgoing message from ARES", "")
+		if(!input)
+			return FALSE
+
+		to_chat(src.owner, "You sent [input] to [speaker] via ARES Interface.")
+		log_admin("[src.owner] replied to [key_name(speaker)]'s ARES message with the message [input].")
+		for(var/client/staff in GLOB.admins)
+			if((R_ADMIN|R_MOD) & staff.admin_holder.rights)
+				to_chat(staff, SPAN_STAFF_IC("<b>ADMINS/MODS: [SPAN_RED("[src.owner] replied to [key_name(speaker)]'s ARES message")] with: [SPAN_BLUE(input)] </b>"))
+		GLOB.ares_link.interface.response_from_ares(input, href_list["AresRef"])
+
+	if(href_list["AresMark"])
+		var/mob/living/carbon/human/speaker = locate(href_list["AresMark"])
+
+		if(!istype(speaker))
+			to_chat(usr, "This can only be used on instances of type /mob/living/carbon/human")
+			return FALSE
+
+		if((!GLOB.ares_link.interface) || (GLOB.ares_link.interface.inoperable()))
+			to_chat(usr, "ARES Interface offline.")
+			return FALSE
+
+		to_chat(src.owner, "You marked [speaker]'s ARES message for response.")
+		log_admin("[src.owner] marked [key_name(speaker)]'s ARES message. [src.owner] will be responding.")
+		for(var/client/staff in GLOB.admins)
+			if((R_ADMIN|R_MOD) & staff.admin_holder.rights)
+				to_chat(staff, SPAN_STAFF_IC("<b>ADMINS/MODS: [SPAN_RED("[src.owner] marked [key_name(speaker)]'s ARES message for response.")]</b>"))
+
 	return
 
 /datum/admins/proc/accept_ert(mob/approver, mob/ref_person)
-	if(distress_cancel)
+	if(GLOB.distress_cancel)
 		return
-	distress_cancel = TRUE
+	GLOB.distress_cancel = TRUE
 	SSticker.mode.activate_distress()
 	log_game("[key_name_admin(approver)] has sent a randomized distress beacon, requested by [key_name_admin(ref_person)]")
 	message_admins("[key_name_admin(approver)] has sent a randomized distress beacon, requested by [key_name_admin(ref_person)]")
+
+///Handles calling the ERT sent by handheld distress beacons
+/datum/admins/proc/accept_handheld_ert(mob/approver, mob/ref_person, ert_called)
+	if(GLOB.distress_cancel)
+		return
+	GLOB.distress_cancel = TRUE
+	SSticker.mode.get_specific_call("[ert_called]", TRUE, FALSE)
+	log_game("[key_name_admin(approver)] has sent [ert_called], requested by [key_name_admin(ref_person)]")
+	message_admins("[key_name_admin(approver)] has sent [ert_called], requested by [key_name_admin(ref_person)]")
 
 /datum/admins/proc/generate_job_ban_list(mob/M, datum/entity/player/P, list/roles, department, color = "ccccff")
 	var/counter = 0
@@ -1847,7 +1962,7 @@
 	for(var/jobPos in roles)
 		if(!jobPos)
 			continue
-		var/datum/job/job = RoleAuthority.roles_by_name[jobPos]
+		var/datum/job/job = GLOB.RoleAuthority.roles_by_name[jobPos]
 		if(!job)
 			continue
 
@@ -1869,7 +1984,7 @@
 	for(var/jobPos in roles)
 		if(!jobPos)
 			continue
-		var/datum/job/J = RoleAuthority.roles_by_name[jobPos]
+		var/datum/job/J = GLOB.RoleAuthority.roles_by_name[jobPos]
 		if(!J)
 			continue
 		temp += J.title

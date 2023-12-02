@@ -11,6 +11,12 @@
 		to_chat(src, SPAN_WARNING("You can't resist in your current state."))
 		return
 
+	if(isxeno(src))
+		var/mob/living/carbon/xenomorph/xeno = src
+		if(HAS_TRAIT(xeno, TRAIT_ABILITY_BURROWED))
+			to_chat(src, SPAN_WARNING("You can't resist in your current state."))
+			return
+
 	resisting = TRUE
 
 	next_move = world.time + 20
@@ -157,7 +163,7 @@
 			return
 
 	//breaking out of handcuffs & putting out fires
-	if(canmove && !knocked_down)
+	if(!is_mob_incapacitated(TRUE))
 		if(on_fire)
 			resist_fire()
 
@@ -173,7 +179,7 @@
 	if(!iscarbon(src))
 		return
 	var/mob/living/carbon/C = src
-	if((C.handcuffed || C.legcuffed) && C.canmove && (C.last_special <= world.time))
+	if((C.handcuffed || C.legcuffed) && (C.mobility_flags & MOBILITY_MOVE) && (C.last_special <= world.time))
 		resist_restraints()
 
 /mob/living/proc/resist_buckle()

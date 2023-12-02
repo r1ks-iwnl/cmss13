@@ -41,7 +41,7 @@
 			handle_chemicals_in_body(delta_time)
 
 			//Organs and blood
-			handle_organs()
+			handle_organs(delta_time)
 			handle_blood()
 
 			//Random events (vomiting etc)
@@ -81,8 +81,6 @@
 
 	//Status updates, death etc.
 	handle_regular_status_updates() //Optimized a bit
-
-	update_canmove()
 
 	handle_regular_hud_updates()
 

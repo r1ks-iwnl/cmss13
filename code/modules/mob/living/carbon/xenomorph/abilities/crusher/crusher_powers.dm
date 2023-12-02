@@ -136,8 +136,7 @@
 		to_chat(H, SPAN_XENOHIGHDANGER("You are slowed as [X] knocks you off balance!"))
 
 	apply_cooldown()
-	..()
-	return
+	return ..()
 
 /datum/action/xeno_action/onclick/crusher_stomp/charger/use_ability()
 	var/mob/living/carbon/xenomorph/Xeno = owner
@@ -183,8 +182,7 @@
 		to_chat(Human, SPAN_XENOHIGHDANGER("You are shaken as [Xeno] quakes the earth!"))
 
 	apply_cooldown()
-	..()
-	return
+	return ..()
 
 /datum/action/xeno_action/onclick/crusher_shield/use_ability(atom/Target)
 	var/mob/living/carbon/xenomorph/xeno = owner
@@ -216,8 +214,7 @@
 	addtimer(CALLBACK(src, PROC_REF(remove_shield)), 70, TIMER_UNIQUE|TIMER_OVERRIDE)
 
 	apply_cooldown()
-	..()
-	return
+	return ..()
 
 /datum/action/xeno_action/onclick/crusher_shield/proc/remove_explosion_immunity()
 	var/mob/living/carbon/xenomorph/xeno = owner
@@ -255,7 +252,7 @@
 	to_chat(Xeno, SPAN_XENONOTICE("You will [will_charge] charge when moving."))
 	if(activated)
 		RegisterSignal(Xeno, COMSIG_MOVABLE_MOVED, PROC_REF(handle_movement))
-		RegisterSignal(Xeno, COMSIG_MOB_KNOCKED_DOWN, PROC_REF(handle_movement))
+		RegisterSignal(Xeno, COMSIG_LIVING_SET_BODY_POSITION, PROC_REF(handle_position_change))
 		RegisterSignal(Xeno, COMSIG_ATOM_DIR_CHANGE, PROC_REF(handle_dir_change))
 		RegisterSignal(Xeno, COMSIG_XENO_RECALCULATE_SPEED, PROC_REF(update_speed))
 		RegisterSignal(Xeno, COMSIG_XENO_STOP_MOMENTUM, PROC_REF(stop_momentum))
@@ -267,18 +264,16 @@
 		stop_momentum()
 		UnregisterSignal(Xeno, list(
 			COMSIG_MOVABLE_MOVED,
-			COMSIG_MOB_KNOCKED_DOWN,
+			COMSIG_LIVING_SET_BODY_POSITION,
 			COMSIG_ATOM_DIR_CHANGE,
 			COMSIG_XENO_RECALCULATE_SPEED,
 			COMSIG_MOVABLE_ENTERED_RIVER,
 			COMSIG_LIVING_PRE_COLLIDE,
 			COMSIG_XENO_STOP_MOMENTUM,
 			COMSIG_XENO_START_CHARGING,
-			button.icon_state = "template"
 		))
-	if(!activated)
 		button.icon_state = "template"
-
+	return ..()
 
 /datum/action/xeno_action/activable/tumble/use_ability(atom/Target)
 	if(!action_cooldown_check())
@@ -320,4 +315,4 @@
 	Xeno.launch_towards(LM)
 
 	apply_cooldown()
-	..()
+	return ..()

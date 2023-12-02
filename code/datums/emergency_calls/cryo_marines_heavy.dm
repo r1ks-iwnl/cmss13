@@ -16,10 +16,12 @@
 
 	var/leaders = 0
 
-/datum/emergency_call/cryo_squad_equipped/spawn_candidates(announce, override_spawn_loc)
-	var/datum/squad/marine/cryo/cryo_squad = RoleAuthority.squads_by_type[/datum/squad/marine/cryo]
+/datum/emergency_call/cryo_squad_equipped/spawn_candidates(quiet_launch, announce_incoming, override_spawn_loc)
+	var/datum/squad/marine/cryo/cryo_squad = GLOB.RoleAuthority.squads_by_type[/datum/squad/marine/cryo]
 	leaders = cryo_squad.num_leaders
-	return ..()
+	. = ..()
+	if(length(members))
+		shipwide_ai_announcement("Successfully deployed [length(members)] Foxtrot marines.")
 
 /datum/emergency_call/cryo_squad_equipped/create_member(datum/mind/M, turf/override_spawn_loc)
 	set waitfor = 0
@@ -33,7 +35,7 @@
 	M.transfer_to(H, TRUE)
 
 	sleep(5)
-	var/datum/squad/marine/cryo/cryo_squad = RoleAuthority.squads_by_type[/datum/squad/marine/cryo]
+	var/datum/squad/marine/cryo/cryo_squad = GLOB.RoleAuthority.squads_by_type[/datum/squad/marine/cryo]
 	if(leaders < cryo_squad.max_leaders && HAS_FLAG(H.client.prefs.toggles_ert, PLAY_LEADER) && check_timelock(H.client, JOB_SQUAD_LEADER, time_required_for_job))
 		leader = H
 		leaders++

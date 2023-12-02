@@ -17,6 +17,7 @@
 /mob/living/carbon/Destroy()
 	stomach_contents?.Cut()
 	view_change_sources = null
+	active_transfusions = null
 	. = ..()
 
 	QDEL_NULL_LIST(internal_organs)
@@ -73,7 +74,7 @@
 
 /mob/living/carbon/ex_act(severity, direction, datum/cause_data/cause_data)
 
-	if(lying)
+	if(body_position == LYING_DOWN)
 		severity *= EXPLOSION_PRONE_MULTIPLIER
 
 	if(severity >= 30)
@@ -165,7 +166,7 @@
 				return TRUE
 		else
 			var/obj/limb/affecting = get_limb(check_zone(M.zone_selected))
-			if(initiate_surgery_moment(null, src, affecting, M))
+			if(affecting && initiate_surgery_moment(null, src, affecting, M))
 				return TRUE
 
 	for(var/datum/disease/D in viruses)
@@ -221,7 +222,7 @@
 /mob/living/carbon/swap_hand()
 	var/obj/item/wielded_item = get_active_hand()
 	if(wielded_item && (wielded_item.flags_item & WIELDED)) //this segment checks if the item in your hand is twohanded.
-		var/obj/item/weapon/melee/twohanded/offhand/offhand = get_inactive_hand()
+		var/obj/item/weapon/twohanded/offhand/offhand = get_inactive_hand()
 		if(offhand && (offhand.flags_item & WIELDED))
 			to_chat(src, SPAN_WARNING("Your other hand is too busy holding \the [offhand.name]")) //So it's an offhand.
 			return
@@ -237,6 +238,10 @@
 		else
 			hud_used.l_hand_hud_object.icon_state = "hand_inactive"
 			hud_used.r_hand_hud_object.icon_state = "hand_active"
+	if(l_hand)
+		l_hand.hands_swapped(src)
+	if(r_hand)
+		r_hand.hands_swapped(src)
 	return
 
 /mob/living/carbon/proc/activate_hand(selhand) //0 or "r" or "right" for right hand; 1 or "l" or "left" for left hand.
@@ -255,19 +260,24 @@
 /mob/living/carbon/proc/help_shake_act(mob/living/carbon/M)
 	if(src == M)
 		return
-	var/t_him = "it"
-	if(gender == MALE)
-		t_him = "him"
-	else if(gender == FEMALE)
-		t_him = "her"
-	if(lying || sleeping)
+	var/t_him = p_them()
+
+	var/shake_action
+	if(stat == DEAD || HAS_TRAIT(src, TRAIT_INCAPACITATED) || sleeping) // incap implies also unconscious or knockedout
+		shake_action = "wake [t_him] up!"
+	else if(HAS_TRAIT(src, TRAIT_FLOORED))
+		shake_action = "get [t_him] up!"
+
+	if(shake_action) // We are incapacitated in some fashion
 		if(client)
 			sleeping = max(0,sleeping-5)
-		if(sleeping == 0)
-			resting = 0
-			update_canmove()
-		M.visible_message(SPAN_NOTICE("[M] shakes [src] trying to wake [t_him] up!"), \
-			SPAN_NOTICE("You shake [src] trying to wake [t_him] up!"), null, 4)
+		M.visible_message(SPAN_NOTICE("[M] shakes [src] trying to [shake_action]"), \
+			SPAN_NOTICE("You shake [src] trying to [shake_action]"), null, 4)
+
+	else if(body_position == LYING_DOWN) // We're just chilling on the ground, let us be
+		M.visible_message(SPAN_NOTICE("[M] stares and waves impatiently at [src] lying on the ground."), \
+			SPAN_NOTICE("You stare and wave at [src] just lying on the ground."), null, 4)
+
 	else
 		var/mob/living/carbon/human/H = M
 		if(istype(H))
@@ -278,9 +288,9 @@
 			playsound(loc, 'sound/weapons/thudswoosh.ogg', 25, 1, 5)
 		return
 
-	adjust_effect(-3, PARALYZE)
-	adjust_effect(-3, STUN)
-	adjust_effect(-3, WEAKEN)
+	adjust_effect(-6, PARALYZE)
+	adjust_effect(-6, STUN)
+	adjust_effect(-6, WEAKEN)
 
 	playsound(loc, 'sound/weapons/thudswoosh.ogg', 25, 1, 5)
 
@@ -432,11 +442,11 @@
 	set name = "Sleep"
 	set category = "IC"
 
-	if(usr.sleeping)
+	if(sleeping)
 		to_chat(usr, SPAN_DANGER("You are already sleeping"))
 		return
 	if(alert(src,"You sure you want to sleep for a while?","Sleep","Yes","No") == "Yes")
-		usr.sleeping = 20 //Short nap
+		sleeping = 20 //Short nap
 
 
 /mob/living/carbon/Collide(atom/movable/AM)
@@ -447,19 +457,19 @@
 /mob/living/carbon/slip(slip_source_name, stun_level, weaken_level, run_only, override_noslip, slide_steps)
 	set waitfor = 0
 	if(buckled) return FALSE //can't slip while buckled
-	if(lying) return FALSE //can't slip if already lying down.
+	if(body_position != STANDING_UP) return FALSE //can't slip if already lying down.
 	stop_pulling()
 	to_chat(src, SPAN_WARNING("You slipped on \the [slip_source_name? slip_source_name : "floor"]!"))
 	playsound(src.loc, 'sound/misc/slip.ogg', 25, 1)
 	apply_effect(stun_level, STUN)
 	apply_effect(weaken_level, WEAKEN)
 	. = TRUE
-	if(slide_steps && lying)//lying check to make sure we downed the mob
+	if(slide_steps && HAS_TRAIT(src, TRAIT_FLOORED))//lying check to make sure we downed the mob
 		var/slide_dir = dir
 		for(var/i=1, i<=slide_steps, i++)
 			step(src, slide_dir)
 			sleep(2)
-			if(!lying)
+			if(!HAS_TRAIT(src, TRAIT_FLOORED)) // just watch this break in the most horrible way possible
 				break
 
 
@@ -513,3 +523,17 @@
 			. += SPAN_GREEN("[src] was thralled by [src.hunter_data.thralled_set.real_name] for '[src.hunter_data.thralled_reason]'.")
 		else if(src.hunter_data.gear)
 			. += SPAN_RED("[src] was marked as carrying gear by [src.hunter_data.gear_set].")
+
+
+/mob/living/carbon/on_lying_down(new_lying_angle)
+	. = ..()
+	if(!buckled || buckled.buckle_lying != 0)
+		lying_angle_on_lying_down(new_lying_angle)
+
+
+/// Special carbon interaction on lying down, to transform its sprite by a rotation.
+/mob/living/carbon/proc/lying_angle_on_lying_down(new_lying_angle)
+	if(!new_lying_angle)
+		set_lying_angle(pick(90, 270))
+	else
+		set_lying_angle(new_lying_angle)
